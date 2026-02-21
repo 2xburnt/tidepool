@@ -1,0 +1,15 @@
+[package]
+name = "tidepool_reputation"
+version = "0.1.0"
+edition = "2024"
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+[dependencies]
+cosmwasm-schema = "3.0.4"
+cosmwasm-std = "3.0.4"
+cw-storage-plus = "3.0.1"
+cw2 = "3.0.0"
+schemars = "1.2.1"
+serde = { version = "1.0.228", features = ["derive"] }
