@@ -1,0 +1,7 @@
+{
+  "chainId": "xion-testnet-2",
+  "rpcUrl": "https://rpc.xion-testnet-2.burnt.com:443",
+  "sender": "xion18hjhxkrmrp0gag3rgl7xh00y95vetnj9unf96x",
+  "contractName": "reputation",
+  "wasmPath": "contracts/reputation/target/wasm32-unknown-unknown/release/tidepool_reputation.wasm"
+}

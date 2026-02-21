@@ -48,7 +48,7 @@ pub fn execute(
 pub fn register(deps: DepsMut, info: MessageInfo, name: String) -> StdResult<Response> {
     // Check if already registered
     if AGENTS.may_load(deps.storage, &info.sender)?.is_some() {
-        return Err(cosmwasm_std::StdError::generic_err("Already registered"));
+        return Err(cosmwasm_std::StdError::msg("Already registered"));
     }
 
     let agent = Agent {
@@ -75,13 +75,13 @@ pub fn mint_badge(
 ) -> StdResult<Response> {
     // Check if sender is an authorized issuer
     if !ISSUERS.may_load(deps.storage, &info.sender)?.unwrap_or(false) {
-        return Err(cosmwasm_std::StdError::generic_err("Unauthorized: Not an issuer"));
+        return Err(cosmwasm_std::StdError::msg("Unauthorized: Not an issuer"));
     }
     
     let agent_addr_validated = deps.api.addr_validate(&agent_addr)?;
     
     AGENTS.update(deps.storage, &agent_addr_validated, |agent| -> StdResult<_> {
-        let mut agent = agent.ok_or_else(|| cosmwasm_std::StdError::generic_err("Agent not found"))?;
+        let mut agent = agent.ok_or_else(|| cosmwasm_std::StdError::msg("Agent not found"))?;
         if !agent.badges.contains(&badge_type) {
              agent.badges.push(badge_type.clone());
         }
@@ -98,7 +98,7 @@ pub fn mint_badge(
 pub fn add_issuer(deps: DepsMut, info: MessageInfo, address: String) -> StdResult<Response> {
     let config = CONFIG.load(deps.storage)?;
     if info.sender != config.owner {
-        return Err(cosmwasm_std::StdError::generic_err("Unauthorized: Only owner can add issuers"));
+        return Err(cosmwasm_std::StdError::msg("Unauthorized: Only owner can add issuers"));
     }
 
     let addr = deps.api.addr_validate(&address)?;
@@ -112,7 +112,7 @@ pub fn add_issuer(deps: DepsMut, info: MessageInfo, address: String) -> StdResul
 pub fn remove_issuer(deps: DepsMut, info: MessageInfo, address: String) -> StdResult<Response> {
     let config = CONFIG.load(deps.storage)?;
     if info.sender != config.owner {
-        return Err(cosmwasm_std::StdError::generic_err("Unauthorized: Only owner can remove issuers"));
+        return Err(cosmwasm_std::StdError::msg("Unauthorized: Only owner can remove issuers"));
     }
 
     let addr = deps.api.addr_validate(&address)?;
