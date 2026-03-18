@@ -1,0 +1,29 @@
+{
+  "grant_config": [
+    {
+      "msg_type_url": "/cosmwasm.wasm.v1.MsgExecuteContract",
+      "grant_config": {
+        "description": "Allow agents to execute Tidepool contracts gaslessly",
+        "authorization": {
+          "@type": "/cosmos.authz.v1beta1.GenericAuthorization",
+          "msg": "/cosmwasm.wasm.v1.MsgExecuteContract"
+        },
+        "optional": true
+      }
+    }
+  ],
+  "fee_config": {
+    "description": "Tidepool treasury - sponsors gas for agent interactions",
+    "allowance": {
+      "@type": "/cosmos.feegrant.v1beta1.BasicAllowance",
+      "spend_limit": [
+        {
+          "denom": "uxion",
+          "amount": "100000000"
+        }
+      ],
+      "expiration": "2027-01-01T00:00:00Z"
+    },
+    "expiration": 1798761600
+  }
+}
