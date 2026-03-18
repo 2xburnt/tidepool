@@ -1,8 +1,10 @@
 import React, { useEffect, useState, useCallback } from "react";
 import {
   AbstraxionProvider,
+  AbstraxionEmbed,
   useAbstraxionAccount,
   useAbstraxionSigningClient,
+  useAbstraxionClient,
 } from "@burnt-labs/abstraxion";
 import { type Agent, type Task, fetchLeaderboard, fetchTasks } from "./client";
 import { CHAIN_CONFIG } from "./config";
@@ -211,10 +213,10 @@ function TaskList({
 }
 
 function WalletButton() {
-  const { data: account } = useAbstraxionAccount();
-  const [showModal, setShowModal] = useState(false);
+  const { data: account, isConnected } = useAbstraxionAccount();
+  const { client: abstraxionClient } = useAbstraxionClient();
 
-  if (account?.bech32Address) {
+  if (isConnected && account?.bech32Address) {
     return (
       <div className="wallet-connected">
         <span className="wallet-addr">
@@ -225,7 +227,7 @@ function WalletButton() {
   }
 
   return (
-    <button className="btn-connect" onClick={() => setShowModal(true)}>
+    <button className="btn-connect" onClick={() => abstraxionClient?.authenticate()}>
       Connect Wallet
     </button>
   );
@@ -334,6 +336,7 @@ export default function App() {
           </div>
         </header>
         <Dashboard />
+        <AbstraxionEmbed />
         <footer>
           <p>
             Contracts on <strong>xion-testnet-2</strong> · Powered by{" "}
