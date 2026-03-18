@@ -29,4 +29,7 @@ pub enum ContractError {
 
     #[error("Cannot claim your own task")]
     CannotClaimOwnTask {},
+
+    #[error("Only one coin denomination allowed as bounty")]
+    MultipleDenoms {},
 }

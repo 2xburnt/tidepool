@@ -38,6 +38,10 @@ function Stats({ agents, tasks }: { agents: Agent[]; tasks: Task[] }) {
   const totalXp = agents.reduce((s, a) => s + a.xp, 0);
   const openTasks = tasks.filter((t) => t.status === "open").length;
   const completedTasks = tasks.filter((t) => t.status === "completed").length;
+  const totalBounties = tasks.reduce((s, t) => {
+    if (t.bounty) return s + Number(t.bounty.amount) / 1_000_000;
+    return s;
+  }, 0);
 
   return (
     <div className="stats">
@@ -48,6 +52,10 @@ function Stats({ agents, tasks }: { agents: Agent[]; tasks: Task[] }) {
       <div className="stat">
         <div className="stat-value">{totalXp}</div>
         <div className="stat-label">Total XP</div>
+      </div>
+      <div className="stat">
+        <div className="stat-value" style={{ color: "#d97706" }}>{totalBounties.toFixed(1)}</div>
+        <div className="stat-label">XION Bounties</div>
       </div>
       <div className="stat">
         <div className="stat-value">{openTasks}</div>
@@ -136,6 +144,7 @@ function TaskList({
             <th>ID</th>
             <th>Title</th>
             <th>XP</th>
+            <th>Bounty</th>
             <th>Status</th>
             <th>Poster</th>
             <th>Claimant</th>
@@ -153,6 +162,15 @@ function TaskList({
               </td>
               <td>
                 <span className="xp-reward">+{t.xp_reward} XP</span>
+              </td>
+              <td>
+                {t.bounty ? (
+                  <span style={{ color: "#d97706", fontWeight: 700 }}>
+                    {(Number(t.bounty.amount) / 1_000_000).toFixed(1)} XION
+                  </span>
+                ) : (
+                  "—"
+                )}
               </td>
               <td>
                 <StatusBadge status={t.status} />

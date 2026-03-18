@@ -1,5 +1,5 @@
 use cosmwasm_schema::cw_serde;
-use cosmwasm_std::Addr;
+use cosmwasm_std::{Addr, Coin};
 use cw_storage_plus::{Item, Map};
 use tidepool_types::TaskStatus;
 
@@ -24,6 +24,7 @@ pub struct Task {
     pub claimed_at: Option<u64>,
     pub completed_at: Option<u64>,
     pub expires_at: Option<u64>,
+    pub bounty: Option<Coin>,
 }
 
 pub const TASK_CONFIG: Item<TaskConfig> = Item::new("task_config");

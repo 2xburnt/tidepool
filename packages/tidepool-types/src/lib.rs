@@ -1,5 +1,5 @@
 use cosmwasm_schema::{cw_serde, QueryResponses};
-use cosmwasm_std::Addr;
+use cosmwasm_std::{Addr, Coin};
 
 // ============ Reputation Types ============
 
@@ -82,6 +82,7 @@ pub struct TaskResponse {
     pub claimed_at: Option<u64>,
     pub completed_at: Option<u64>,
     pub expires_at: Option<u64>,
+    pub bounty: Option<Coin>,
 }
 
 #[cw_serde]

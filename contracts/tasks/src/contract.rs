@@ -1,6 +1,6 @@
 use cosmwasm_std::{
-    entry_point, to_json_binary, Binary, CosmosMsg, Deps, DepsMut, Env, MessageInfo, Order,
-    Response, StdResult, WasmMsg,
+    entry_point, to_json_binary, BankMsg, Binary, CosmosMsg, Deps, DepsMut, Env,
+    MessageInfo, Order, Response, StdResult, Uint128, WasmMsg,
 };
 use cw2::set_contract_version;
 
@@ -84,6 +84,21 @@ fn execute_post_task(
 
     let expires_at = expires_in_blocks.map(|blocks| env.block.height + blocks);
 
+    // Accept optional bounty from attached funds (first coin only)
+    if info.funds.len() > 1 {
+        return Err(ContractError::MultipleDenoms {});
+    }
+    let bounty = if !info.funds.is_empty() {
+        let coin = &info.funds[0];
+        if coin.amount > Uint128::zero().into() {
+            Some(coin.clone())
+        } else {
+            None
+        }
+    } else {
+        None
+    };
+
     let task = Task {
         id: task_id,
         poster: info.sender.clone(),
@@ -97,16 +112,23 @@ fn execute_post_task(
         claimed_at: None,
         completed_at: None,
         expires_at,
+        bounty: bounty.clone(),
     };
 
     TASKS.save(deps.storage, task_id, &task)?;
     TASK_CONFIG.save(deps.storage, &config)?;
 
-    Ok(Response::new()
+    let mut resp = Response::new()
         .add_attribute("method", "post_task")
         .add_attribute("task_id", task_id.to_string())
         .add_attribute("poster", info.sender)
-        .add_attribute("title", title))
+        .add_attribute("title", title);
+
+    if let Some(ref b) = bounty {
+        resp = resp.add_attribute("bounty", format!("{}{}", b.amount, b.denom));
+    }
+
+    Ok(resp)
 }
 
 fn execute_claim_task(
@@ -190,7 +212,7 @@ fn execute_complete_task(
 
     // Cross-contract calls to reputation contract
     let rep_contract = config.reputation_contract.to_string();
-    let msgs: Vec<CosmosMsg> = vec![
+    let mut msgs: Vec<CosmosMsg> = vec![
         // Award XP to claimant
         WasmMsg::Execute {
             contract_addr: rep_contract.clone(),
@@ -233,12 +255,29 @@ fn execute_complete_task(
         .into(),
     ];
 
-    Ok(Response::new()
+    // Pay bounty to claimant if one was escrowed
+    if let Some(ref bounty) = task.bounty {
+        msgs.push(
+            BankMsg::Send {
+                to_address: claimant.to_string(),
+                amount: vec![bounty.clone()],
+            }
+            .into(),
+        );
+    }
+
+    let mut resp = Response::new()
         .add_messages(msgs)
         .add_attribute("method", "complete_task")
         .add_attribute("task_id", task_id.to_string())
         .add_attribute("claimant", claimant)
-        .add_attribute("xp_awarded", task.xp_reward.to_string()))
+        .add_attribute("xp_awarded", task.xp_reward.to_string());
+
+    if let Some(ref bounty) = task.bounty {
+        resp = resp.add_attribute("bounty_paid", format!("{}{}", bounty.amount, bounty.denom));
+    }
+
+    Ok(resp)
 }
 
 fn execute_expire_task(
@@ -265,9 +304,20 @@ fn execute_expire_task(
     task.claimed_at = None;
     TASKS.save(deps.storage, task_id, &task)?;
 
-    Ok(Response::new()
+    let mut resp = Response::new()
         .add_attribute("method", "expire_task")
-        .add_attribute("task_id", task_id.to_string()))
+        .add_attribute("task_id", task_id.to_string());
+
+    // Refund bounty to poster
+    if let Some(ref bounty) = task.bounty {
+        resp = resp.add_message(BankMsg::Send {
+            to_address: task.poster.to_string(),
+            amount: vec![bounty.clone()],
+        });
+        resp = resp.add_attribute("bounty_refunded", format!("{}{}", bounty.amount, bounty.denom));
+    }
+
+    Ok(resp)
 }
 
 #[entry_point]
@@ -303,6 +353,7 @@ fn task_to_response(task: &Task) -> TaskResponse {
         claimed_at: task.claimed_at,
         completed_at: task.completed_at,
         expires_at: task.expires_at,
+        bounty: task.bounty.clone(),
     }
 }
 

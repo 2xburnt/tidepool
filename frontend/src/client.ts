@@ -24,6 +24,7 @@ export interface Task {
   claimed_at: number | null;
   completed_at: number | null;
   expires_at: number | null;
+  bounty: { denom: string; amount: string } | null;
 }
 
 async function queryContract<T>(contract: string, msg: object): Promise<T> {

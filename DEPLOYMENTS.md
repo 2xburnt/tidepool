@@ -10,6 +10,7 @@
 |----------|---------|---------|
 | Reputation | 2053 | `xion13a7zj373ztxcm5mux7hvkvp3mr575t9rmnkhcgm0xvma2fxc6dzqkdaewv` |
 | Tasks | 2054 | `xion15tzqfeykxkfvflty63zg6vws75e2u334vjr8s7w7ja8rd4gpd9es7lld4c` |
+| Tasks v2 (bounty) | 2069 | `xion13l9jde9sszq586hy00w2y0n8qvwpe8plce3em90sm5f3075jltcqtcpwww` |
 
 ### Build Info
 - **Optimizer:** `cosmwasm/optimizer-arm64:0.17.0` (Rust 1.86)
