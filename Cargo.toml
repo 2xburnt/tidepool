@@ -1,0 +1,25 @@
+[workspace]
+members = ["contracts/*", "packages/*"]
+resolver = "2"
+
+[workspace.dependencies]
+cosmwasm-schema = "3.0.4"
+cosmwasm-std = "3.0.4"
+cw-storage-plus = "3.0.1"
+cw2 = "3.0.0"
+schemars = "1.2.1"
+serde = { version = "1.0.228", features = ["derive"] }
+thiserror = "2"
+tidepool-types = { path = "packages/tidepool-types" }
+
+[profile.release]
+opt-level = "z"
+debug = false
+rpath = false
+lto = true
+debug-assertions = false
+codegen-units = 1
+panic = "abort"
+incremental = false
+overflow-checks = true
+strip = true

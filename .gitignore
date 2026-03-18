@@ -1,5 +1,8 @@
 target/
 node_modules/
 .env
-.DS_Store
-*.swp
+*.log
+signed_tx.json
+tx.json
+deploy.json
+artifacts/
