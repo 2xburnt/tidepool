@@ -1,4 +1,5 @@
 #[cfg(test)]
+#[allow(clippy::module_inception)]
 mod tests {
     use cosmwasm_std::{
         Addr, Attribute, Empty, Env, OwnedDeps, Uint128,
