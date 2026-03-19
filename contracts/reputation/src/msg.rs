@@ -41,11 +41,13 @@ pub enum QueryMsg {
     Leaderboard {
         limit: Option<u32>,
         skill: Option<String>,
+        start_after: Option<String>,
     },
     #[returns(tidepool_types::AgentsListResponse)]
     GetAgentsBySkill {
         skill: String,
         min_rating: Option<u8>,
+        start_after: Option<String>,
         limit: Option<u32>,
     },
     #[returns(tidepool_types::ReputationConfigResponse)]

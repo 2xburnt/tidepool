@@ -9,7 +9,7 @@ mod tests {
     use crate::error::ContractError;
     use crate::msg::{ExecuteMsg, InstantiateMsg, QueryMsg};
     use tidepool_types::{
-        AgentResponse, AgentsListResponse, LeaderboardResponse, ReputationConfigResponse, Skill,
+        AgentResponse, AgentsListResponse, LeaderboardResponse, ReputationConfigResponse,
         SkillInput,
     };
 
@@ -492,6 +492,7 @@ mod tests {
                 QueryMsg::Leaderboard {
                     limit: Some(10),
                     skill: None,
+                    start_after: None,
                 },
             )
             .unwrap(),
@@ -568,6 +569,7 @@ mod tests {
                 QueryMsg::Leaderboard {
                     limit: Some(10),
                     skill: Some("cosmwasm".to_string()),
+                    start_after: None,
                 },
             )
             .unwrap(),
@@ -631,6 +633,7 @@ mod tests {
                 QueryMsg::GetAgentsBySkill {
                     skill: "rust".to_string(),
                     min_rating: None,
+                    start_after: None,
                     limit: None,
                 },
             )
@@ -647,6 +650,7 @@ mod tests {
                 QueryMsg::GetAgentsBySkill {
                     skill: "rust".to_string(),
                     min_rating: Some(4),
+                    start_after: None,
                     limit: None,
                 },
             )
@@ -664,6 +668,7 @@ mod tests {
                 QueryMsg::GetAgentsBySkill {
                     skill: "solidity".to_string(),
                     min_rating: None,
+                    start_after: None,
                     limit: None,
                 },
             )
@@ -688,6 +693,7 @@ mod tests {
                 QueryMsg::Leaderboard {
                     limit: Some(2),
                     skill: None,
+                    start_after: None,
                 },
             )
             .unwrap(),

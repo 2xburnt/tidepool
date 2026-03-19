@@ -239,14 +239,23 @@ pub fn query(deps: Deps, _env: Env, msg: QueryMsg) -> StdResult<Binary> {
         QueryMsg::ListAgents { start_after, limit } => {
             to_json_binary(&query_list_agents(deps, start_after, limit)?)
         }
-        QueryMsg::Leaderboard { limit, skill } => {
-            to_json_binary(&query_leaderboard(deps, limit, skill)?)
-        }
+        QueryMsg::Leaderboard {
+            limit,
+            skill,
+            start_after,
+        } => to_json_binary(&query_leaderboard(deps, limit, skill, start_after)?),
         QueryMsg::GetAgentsBySkill {
             skill,
             min_rating,
+            start_after,
             limit,
-        } => to_json_binary(&query_agents_by_skill(deps, skill, min_rating, limit)?),
+        } => to_json_binary(&query_agents_by_skill(
+            deps,
+            skill,
+            min_rating,
+            start_after,
+            limit,
+        )?),
         QueryMsg::Config {} => to_json_binary(&query_config(deps)?),
     }
 }
@@ -289,11 +298,22 @@ fn query_leaderboard(
     deps: Deps,
     limit: Option<u32>,
     skill: Option<String>,
+    start_after: Option<String>,
 ) -> StdResult<LeaderboardResponse> {
     let limit = limit.unwrap_or(10).min(100) as usize;
+    // Cap scan to prevent gas blowup at scale.
+    // For true global ranking at 10k+ agents, use an off-chain indexer.
+    const MAX_SCAN: usize = 500;
+
+    let start = start_after
+        .as_ref()
+        .map(|s| deps.api.addr_validate(s))
+        .transpose()?;
+    let min_bound = start.as_ref().map(cw_storage_plus::Bound::exclusive);
 
     let mut agents: Vec<AgentResponse> = AGENTS
-        .range(deps.storage, None, None, Order::Ascending)
+        .range(deps.storage, min_bound, None, Order::Ascending)
+        .take(MAX_SCAN)
         .map(|item| {
             let (addr, agent) = item?;
             Ok(agent_to_response(&addr, &agent))
@@ -302,7 +322,6 @@ fn query_leaderboard(
 
     match skill {
         Some(ref skill_name) => {
-            // Filter to agents who have this skill, sort by total_earned within that skill
             agents.retain(|a| a.skills.iter().any(|s| &s.name == skill_name));
             agents.sort_by(|a, b| {
                 let a_earned = a
@@ -321,7 +340,6 @@ fn query_leaderboard(
             });
         }
         None => {
-            // Sort by overall total_earned descending
             agents.sort_by(|a, b| b.total_earned.cmp(&a.total_earned));
         }
     }
@@ -334,13 +352,20 @@ fn query_agents_by_skill(
     deps: Deps,
     skill: String,
     min_rating: Option<u8>,
+    start_after: Option<String>,
     limit: Option<u32>,
 ) -> StdResult<AgentsListResponse> {
     let limit = limit.unwrap_or(30).min(100) as usize;
     let min_rating = min_rating.unwrap_or(1);
 
+    let start = start_after
+        .as_ref()
+        .map(|s| deps.api.addr_validate(s))
+        .transpose()?;
+    let min_bound = start.as_ref().map(cw_storage_plus::Bound::exclusive);
+
     let agents: Vec<AgentResponse> = AGENTS
-        .range(deps.storage, None, None, Order::Ascending)
+        .range(deps.storage, min_bound, None, Order::Ascending)
         .filter_map(|item| {
             let (addr, agent) = item.ok()?;
             let has_skill = agent
