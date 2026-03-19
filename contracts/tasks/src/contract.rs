@@ -1,6 +1,6 @@
 use cosmwasm_std::{
     entry_point, to_json_binary, BankMsg, Binary, CosmosMsg, Deps, DepsMut, Env,
-    MessageInfo, Order, Response, StdResult, Uint128, WasmMsg,
+    MessageInfo, Order, Response, StdResult, Uint128, Uint256, WasmMsg,
 };
 use cw2::set_contract_version;
 
@@ -96,7 +96,8 @@ fn execute_post_task(
         });
     }
     // SEC FIX: compare as Uint128 directly (was incorrectly widening to Uint256)
-    if sent.amount < config.minimum_escrow {
+    // CosmWasm 3.x: Coin.amount is Uint256, convert minimum_escrow to Uint256 for comparison
+    if sent.amount < Uint256::from(config.minimum_escrow) {
         return Err(ContractError::EscrowTooLow {
             sent: sent.amount.to_string(),
             minimum: config.minimum_escrow.to_string(),
@@ -248,13 +249,14 @@ fn settle_task(
     );
 
     // Update volume in reputation contract — pass required_skills for per-skill tracking
+    // CosmWasm 3.x: Coin.amount is Uint256, convert to Uint128 for reputation contract
     msgs.push(
         WasmMsg::Execute {
             contract_addr: config.reputation_contract.to_string(),
             msg: to_json_binary(&ReputationExecuteMsg::UpdateVolume {
                 worker: claimant.to_string(),
                 poster: task.poster.to_string(),
-                amount: task.escrow.amount,
+                amount: Uint128::try_from(task.escrow.amount).unwrap_or(Uint128::MAX),
                 skills: task.required_skills.clone(),
             })?,
             funds: vec![],

@@ -1,5 +1,5 @@
 use cosmwasm_schema::{cw_serde, QueryResponses};
-use tidepool_types::{AgentResponse, AgentsListResponse, LeaderboardResponse, ReputationConfigResponse, SkillInput};
+use tidepool_types::SkillInput;
 
 #[cw_serde]
 pub struct InstantiateMsg {}
@@ -30,14 +30,14 @@ pub enum ExecuteMsg {
 #[cw_serde]
 #[derive(QueryResponses)]
 pub enum QueryMsg {
-    #[returns(AgentResponse)]
+    #[returns(tidepool_types::AgentResponse)]
     GetAgent { address: String },
-    #[returns(AgentsListResponse)]
+    #[returns(tidepool_types::AgentsListResponse)]
     ListAgents { start_after: Option<String>, limit: Option<u32> },
-    #[returns(LeaderboardResponse)]
+    #[returns(tidepool_types::LeaderboardResponse)]
     Leaderboard { limit: Option<u32>, skill: Option<String> },
-    #[returns(AgentsListResponse)]
+    #[returns(tidepool_types::AgentsListResponse)]
     GetAgentsBySkill { skill: String, min_rating: Option<u8>, limit: Option<u32> },
-    #[returns(ReputationConfigResponse)]
+    #[returns(tidepool_types::ReputationConfigResponse)]
     Config {},
 }

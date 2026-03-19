@@ -1,6 +1,6 @@
 use cosmwasm_schema::{cw_serde, QueryResponses};
 use cosmwasm_std::Uint128;
-use tidepool_types::{TaskConfigResponse, TaskResponse, TaskStatus, TasksListResponse};
+use tidepool_types::TaskStatus;
 
 #[cw_serde]
 pub struct InstantiateMsg {
@@ -38,18 +38,18 @@ pub enum ExecuteMsg {
 #[cw_serde]
 #[derive(QueryResponses)]
 pub enum QueryMsg {
-    #[returns(TaskResponse)]
+    #[returns(tidepool_types::TaskResponse)]
     GetTask { task_id: u64 },
-    #[returns(TasksListResponse)]
+    #[returns(tidepool_types::TasksListResponse)]
     ListTasks {
         status: Option<TaskStatus>,
         start_after: Option<u64>,
         limit: Option<u32>,
     },
-    #[returns(TasksListResponse)]
+    #[returns(tidepool_types::TasksListResponse)]
     MyPostedTasks { address: String },
-    #[returns(TasksListResponse)]
+    #[returns(tidepool_types::TasksListResponse)]
     MyClaimedTasks { address: String },
-    #[returns(TaskConfigResponse)]
+    #[returns(tidepool_types::TaskConfigResponse)]
     Config {},
 }
