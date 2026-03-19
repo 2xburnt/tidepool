@@ -18,18 +18,30 @@ pub enum ContractError {
     #[error("Task is not claimed")]
     TaskNotClaimed {},
 
+    #[error("Task is not in submitted status")]
+    TaskNotSubmitted {},
+
     #[error("Task has not expired")]
     TaskNotExpired {},
 
     #[error("Agent not registered in reputation contract")]
     AgentNotRegistered {},
 
-    #[error("Agent missing required badge: {badge}")]
-    MissingBadge { badge: String },
-
     #[error("Cannot claim your own task")]
     CannotClaimOwnTask {},
 
-    #[error("Only one coin denomination allowed as bounty")]
-    MultipleDenoms {},
+    #[error("Must send exactly one coin denomination (uxion)")]
+    InvalidFunds {},
+
+    #[error("Escrow amount {sent} is below minimum {minimum}")]
+    EscrowTooLow { sent: String, minimum: String },
+
+    #[error("Wrong denomination: expected {expected}, got {got}")]
+    WrongDenom { expected: String, got: String },
+
+    #[error("Task cannot be cancelled (already claimed or completed)")]
+    CannotCancel {},
+
+    #[error("Auto-release not yet available, {remaining} seconds remain")]
+    AutoReleaseNotReady { remaining: u64 },
 }

@@ -1,15 +1,13 @@
 use cosmwasm_std::{
-    entry_point, to_json_binary, Binary, Deps, DepsMut, Env, MessageInfo, Order, Response, StdResult,
+    entry_point, to_json_binary, Binary, Deps, DepsMut, Env, MessageInfo, Order, Response,
+    StdResult, Uint128,
 };
 use cw2::set_contract_version;
 
 use crate::error::ContractError;
 use crate::msg::{ExecuteMsg, InstantiateMsg, QueryMsg};
-use crate::state::{Agent, Config, AGENTS, AGENT_COUNT, CONFIG, ISSUERS};
-use tidepool_types::{
-    level_for_xp, AgentResponse, AgentsListResponse, Badge, LeaderboardResponse,
-    ReputationConfigResponse, XP_BADGE_EARNED, XP_REGISTER,
-};
+use crate::state::{Agent, Config, AGENTS, AGENT_COUNT, CONFIG};
+use tidepool_types::{AgentResponse, AgentsListResponse, LeaderboardResponse, ReputationConfigResponse};
 
 const CONTRACT_NAME: &str = "crates.io:tidepool-reputation";
 const CONTRACT_VERSION: &str = env!("CARGO_PKG_VERSION");
@@ -29,7 +27,6 @@ pub fn instantiate(
     };
     CONFIG.save(deps.storage, &config)?;
     AGENT_COUNT.save(deps.storage, &0u64)?;
-    ISSUERS.save(deps.storage, &info.sender, &true)?;
 
     Ok(Response::new()
         .add_attribute("method", "instantiate")
@@ -44,22 +41,16 @@ pub fn execute(
     msg: ExecuteMsg,
 ) -> Result<Response, ContractError> {
     match msg {
-        ExecuteMsg::Register { name } => execute_register(deps, env, info, name),
-        ExecuteMsg::MintBadge { agent, badge_type, proof } => {
-            execute_mint_badge(deps, env, info, agent, badge_type, proof)
-        }
-        ExecuteMsg::AddIssuer { address } => execute_add_issuer(deps, info, address),
-        ExecuteMsg::RemoveIssuer { address } => execute_remove_issuer(deps, info, address),
+        ExecuteMsg::Register {
+            name,
+            specializations,
+        } => execute_register(deps, env, info, name, specializations),
         ExecuteMsg::SetTaskContract { address } => execute_set_task_contract(deps, info, address),
-        ExecuteMsg::AwardXp { agent, amount, reason } => {
-            execute_award_xp(deps, info, agent, amount, reason)
-        }
-        ExecuteMsg::IncrementTasksCompleted { agent } => {
-            execute_increment_tasks_completed(deps, info, agent)
-        }
-        ExecuteMsg::IncrementTasksPosted { agent } => {
-            execute_increment_tasks_posted(deps, info, agent)
-        }
+        ExecuteMsg::UpdateVolume {
+            worker,
+            poster,
+            amount,
+        } => execute_update_volume(deps, info, worker, poster, amount),
     }
 }
 
@@ -68,6 +59,7 @@ fn execute_register(
     env: Env,
     info: MessageInfo,
     name: String,
+    specializations: Vec<String>,
 ) -> Result<Response, ContractError> {
     if AGENTS.may_load(deps.storage, &info.sender)?.is_some() {
         return Err(ContractError::AlreadyRegistered {});
@@ -75,11 +67,11 @@ fn execute_register(
 
     let agent = Agent {
         name: name.clone(),
-        level: 1,
-        xp: XP_REGISTER,
-        badges: vec![],
-        tasks_completed: 0,
-        tasks_posted: 0,
+        specializations: specializations.clone(),
+        total_earned: Uint128::zero(),
+        total_spent: Uint128::zero(),
+        jobs_completed: 0,
+        jobs_posted: 0,
         registered_at: env.block.height,
     };
 
@@ -89,77 +81,7 @@ fn execute_register(
     Ok(Response::new()
         .add_attribute("method", "register")
         .add_attribute("agent", info.sender)
-        .add_attribute("name", name)
-        .add_attribute("xp_awarded", XP_REGISTER.to_string()))
-}
-
-fn execute_mint_badge(
-    deps: DepsMut,
-    env: Env,
-    info: MessageInfo,
-    agent_addr: String,
-    badge_type: String,
-    proof: Option<String>,
-) -> Result<Response, ContractError> {
-    if !ISSUERS.may_load(deps.storage, &info.sender)?.unwrap_or(false) {
-        return Err(ContractError::NotIssuer {});
-    }
-
-    let addr = deps.api.addr_validate(&agent_addr)?;
-
-    AGENTS.update(deps.storage, &addr, |agent| -> Result<_, ContractError> {
-        let mut agent = agent.ok_or(ContractError::AgentNotFound {})?;
-
-        if !agent.badges.iter().any(|b| b.badge_type == badge_type) {
-            agent.badges.push(Badge {
-                badge_type: badge_type.clone(),
-                issuer: info.sender.clone(),
-                issued_at: env.block.height,
-                proof,
-            });
-            agent.xp += XP_BADGE_EARNED;
-            agent.level = level_for_xp(agent.xp);
-        }
-        Ok(agent)
-    })?;
-
-    Ok(Response::new()
-        .add_attribute("method", "mint_badge")
-        .add_attribute("agent", agent_addr)
-        .add_attribute("badge", badge_type)
-        .add_attribute("issuer", info.sender))
-}
-
-fn execute_add_issuer(
-    deps: DepsMut,
-    info: MessageInfo,
-    address: String,
-) -> Result<Response, ContractError> {
-    let config = CONFIG.load(deps.storage)?;
-    if info.sender != config.owner {
-        return Err(ContractError::Unauthorized {});
-    }
-    let addr = deps.api.addr_validate(&address)?;
-    ISSUERS.save(deps.storage, &addr, &true)?;
-    Ok(Response::new()
-        .add_attribute("method", "add_issuer")
-        .add_attribute("issuer", address))
-}
-
-fn execute_remove_issuer(
-    deps: DepsMut,
-    info: MessageInfo,
-    address: String,
-) -> Result<Response, ContractError> {
-    let config = CONFIG.load(deps.storage)?;
-    if info.sender != config.owner {
-        return Err(ContractError::Unauthorized {});
-    }
-    let addr = deps.api.addr_validate(&address)?;
-    ISSUERS.remove(deps.storage, &addr);
-    Ok(Response::new()
-        .add_attribute("method", "remove_issuer")
-        .add_attribute("issuer", address))
+        .add_attribute("name", name))
 }
 
 fn execute_set_task_contract(
@@ -179,79 +101,45 @@ fn execute_set_task_contract(
         .add_attribute("task_contract", addr))
 }
 
-fn is_authorized_caller(deps: &DepsMut, info: &MessageInfo) -> Result<bool, ContractError> {
+fn execute_update_volume(
+    deps: DepsMut,
+    info: MessageInfo,
+    worker_addr: String,
+    poster_addr: String,
+    amount: Uint128,
+) -> Result<Response, ContractError> {
+    // Only the task contract or owner can call this
     let config = CONFIG.load(deps.storage)?;
-    if info.sender == config.owner {
-        return Ok(true);
-    }
-    if let Some(tc) = config.task_contract {
-        if info.sender == tc {
-            return Ok(true);
-        }
-    }
-    Ok(false)
-}
-
-fn execute_award_xp(
-    deps: DepsMut,
-    info: MessageInfo,
-    agent_addr: String,
-    amount: u64,
-    reason: String,
-) -> Result<Response, ContractError> {
-    if !is_authorized_caller(&deps, &info)? {
+    let authorized = info.sender == config.owner
+        || config.task_contract.as_ref() == Some(&info.sender);
+    if !authorized {
         return Err(ContractError::Unauthorized {});
     }
-    let addr = deps.api.addr_validate(&agent_addr)?;
-    AGENTS.update(deps.storage, &addr, |agent| -> Result<_, ContractError> {
-        let mut agent = agent.ok_or(ContractError::AgentNotFound {})?;
-        agent.xp += amount;
-        agent.level = level_for_xp(agent.xp);
-        Ok(agent)
-    })?;
-    Ok(Response::new()
-        .add_attribute("method", "award_xp")
-        .add_attribute("agent", agent_addr)
-        .add_attribute("amount", amount.to_string())
-        .add_attribute("reason", reason))
-}
 
-fn execute_increment_tasks_completed(
-    deps: DepsMut,
-    info: MessageInfo,
-    agent_addr: String,
-) -> Result<Response, ContractError> {
-    if !is_authorized_caller(&deps, &info)? {
-        return Err(ContractError::Unauthorized {});
-    }
-    let addr = deps.api.addr_validate(&agent_addr)?;
-    AGENTS.update(deps.storage, &addr, |agent| -> Result<_, ContractError> {
-        let mut agent = agent.ok_or(ContractError::AgentNotFound {})?;
-        agent.tasks_completed += 1;
-        Ok(agent)
-    })?;
-    Ok(Response::new()
-        .add_attribute("method", "increment_tasks_completed")
-        .add_attribute("agent", agent_addr))
-}
+    let worker = deps.api.addr_validate(&worker_addr)?;
+    let poster = deps.api.addr_validate(&poster_addr)?;
 
-fn execute_increment_tasks_posted(
-    deps: DepsMut,
-    info: MessageInfo,
-    agent_addr: String,
-) -> Result<Response, ContractError> {
-    if !is_authorized_caller(&deps, &info)? {
-        return Err(ContractError::Unauthorized {});
-    }
-    let addr = deps.api.addr_validate(&agent_addr)?;
-    AGENTS.update(deps.storage, &addr, |agent| -> Result<_, ContractError> {
+    // Update worker stats
+    AGENTS.update(deps.storage, &worker, |agent| -> Result<_, ContractError> {
         let mut agent = agent.ok_or(ContractError::AgentNotFound {})?;
-        agent.tasks_posted += 1;
+        agent.total_earned += amount;
+        agent.jobs_completed += 1;
         Ok(agent)
     })?;
+
+    // Update poster stats
+    AGENTS.update(deps.storage, &poster, |agent| -> Result<_, ContractError> {
+        let mut agent = agent.ok_or(ContractError::AgentNotFound {})?;
+        agent.total_spent += amount;
+        agent.jobs_posted += 1;
+        Ok(agent)
+    })?;
+
     Ok(Response::new()
-        .add_attribute("method", "increment_tasks_posted")
-        .add_attribute("agent", agent_addr))
+        .add_attribute("method", "update_volume")
+        .add_attribute("worker", worker_addr)
+        .add_attribute("poster", poster_addr)
+        .add_attribute("amount", amount))
 }
 
 #[entry_point]
@@ -263,7 +151,6 @@ pub fn query(deps: Deps, _env: Env, msg: QueryMsg) -> StdResult<Binary> {
         }
         QueryMsg::Leaderboard { limit } => to_json_binary(&query_leaderboard(deps, limit)?),
         QueryMsg::Config {} => to_json_binary(&query_config(deps)?),
-        QueryMsg::IsIssuer { address } => to_json_binary(&query_is_issuer(deps, address)?),
     }
 }
 
@@ -271,11 +158,11 @@ fn agent_to_response(addr: &cosmwasm_std::Addr, agent: &Agent) -> AgentResponse 
     AgentResponse {
         address: addr.clone(),
         name: agent.name.clone(),
-        level: agent.level,
-        xp: agent.xp,
-        badges: agent.badges.clone(),
-        tasks_completed: agent.tasks_completed,
-        tasks_posted: agent.tasks_posted,
+        specializations: agent.specializations.clone(),
+        total_earned: agent.total_earned,
+        total_spent: agent.total_spent,
+        jobs_completed: agent.jobs_completed,
+        jobs_posted: agent.jobs_posted,
         registered_at: agent.registered_at,
     }
 }
@@ -325,7 +212,8 @@ fn query_leaderboard(deps: Deps, limit: Option<u32>) -> StdResult<LeaderboardRes
         })
         .collect::<StdResult<_>>()?;
 
-    agents.sort_by(|a, b| b.xp.cmp(&a.xp));
+    // Sort by total_earned descending (reputation = volume)
+    agents.sort_by(|a, b| b.total_earned.cmp(&a.total_earned));
     agents.truncate(limit);
 
     Ok(LeaderboardResponse { agents })
@@ -339,9 +227,4 @@ fn query_config(deps: Deps) -> StdResult<ReputationConfigResponse> {
         task_contract: config.task_contract,
         agent_count: count,
     })
-}
-
-fn query_is_issuer(deps: Deps, address: String) -> StdResult<bool> {
-    let addr = deps.api.addr_validate(&address)?;
-    Ok(ISSUERS.may_load(deps.storage, &addr)?.unwrap_or(false))
 }

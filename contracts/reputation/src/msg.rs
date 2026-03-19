@@ -6,14 +6,19 @@ pub struct InstantiateMsg {}
 
 #[cw_serde]
 pub enum ExecuteMsg {
-    Register { name: String },
-    MintBadge { agent: String, badge_type: String, proof: Option<String> },
-    AddIssuer { address: String },
-    RemoveIssuer { address: String },
-    SetTaskContract { address: String },
-    AwardXp { agent: String, amount: u64, reason: String },
-    IncrementTasksCompleted { agent: String },
-    IncrementTasksPosted { agent: String },
+    Register {
+        name: String,
+        specializations: Vec<String>,
+    },
+    SetTaskContract {
+        address: String,
+    },
+    /// Called by the tasks contract on settlement to update volume stats
+    UpdateVolume {
+        worker: String,
+        poster: String,
+        amount: cosmwasm_std::Uint128,
+    },
 }
 
 #[cw_serde]
@@ -27,6 +32,4 @@ pub enum QueryMsg {
     Leaderboard { limit: Option<u32> },
     #[returns(ReputationConfigResponse)]
     Config {},
-    #[returns(bool)]
-    IsIssuer { address: String },
 }
