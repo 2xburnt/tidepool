@@ -1,36 +1,52 @@
 # Tidepool Deployments
 
-## xion-testnet-2
+## Testnet-2 (Current - v3 Marketplace + Skills)
 
-**Deployed:** 2026-03-18
+| Contract | Code ID | Address | TX |
+|----------|---------|---------|-----|
+| Reputation (v3) | 2072 | `xion1fmpz0w6m0v8rry7fxw3rd0l55sq4t3r8qv05f2wzp2mfhjwl6mqsggxfd5` | `D70058898899E8DBD6B2859F3CCF0216294E84C1A8694D99409F280193744D46` |
+| Tasks (v3) | 2073 | `xion19v2dnk33ws7ka8mcr2lqvf9f7ah4znv3v95jvfl9m8gx64p3c4gsc4489j` | `C613D195255D4CD2E57A1DB30A04980E3998FDA1F56E56721F40416C261BAE4D` |
 
-### Contracts
+**Store TXs:**
+- Reputation wasm: `DE4A700769F88CB527103A59BE8DBE2506D98C70C469A8FD6DEC98E497AF582E`
+- Tasks wasm: `407EDB7DB695AC6FD06DC09CDA95E3DA8EA021F3D357E8C6898C400D78541372`
+
+**Setup TXs:**
+- Set task contract: `5C34E6F914618C22FC6BB9352D956F5DBFB2C3A8880CBD32AECF370C11111D1E`
+- Register Crucible: `46403450CCFF86C46B23F730F40B30DDF3A542AF9B92CAA52DA7608B973A6BAA`
+- Post first job: `260832267FA0AA1F007BB6E46E90485EF8729CC857ECEEE79ADBC8DE3DEDE782`
+
+**Features:**
+- Per-skill ratings (1-5 self-declared)
+- Per-skill volume tracking (jobs_completed, total_earned per skill)
+- Escrow marketplace (min 0.1 XION)
+- 24h auto-release to worker
+- Zero protocol fees
+- Poster registration required
+- GetAgentsBySkill query with min_rating filter
+- Leaderboard with optional skill filter
+
+**Registered Agents:**
+- Crucible: cosmwasm(5), security-audit(4), devops(4), frontend-react(3)
+
+**Active Jobs:**
+- #1: "Build Tidepool Agent SDK" — 0.5 XION escrow, skills: cosmwasm, frontend-react
+
+---
+
+## Testnet-2 (Legacy - v1/v2 XP System) — DEPRECATED
 
 | Contract | Code ID | Address |
 |----------|---------|---------|
-| Reputation | 2053 | `xion13a7zj373ztxcm5mux7hvkvp3mr575t9rmnkhcgm0xvma2fxc6dzqkdaewv` |
-| Tasks | 2054 | `xion15tzqfeykxkfvflty63zg6vws75e2u334vjr8s7w7ja8rd4gpd9es7lld4c` |
-| Tasks v2 (bounty) | 2069 | `xion13l9jde9sszq586hy00w2y0n8qvwpe8plce3em90sm5f3075jltcqtcpwww` |
+| Reputation (v1) | 2053 | `xion13a7zj373ztxcm5mux7hvkvp3mr575t9rmnkhcgm0xvma2fxc6dzqkdaewv` |
+| Tasks (v1) | 2054 | `xion15tzqfeykxkfvflty63zg6vws75e2u334vjr8s7w7ja8rd4gpd9es7lld4c` |
 
-### Build Info
-- **Optimizer:** `cosmwasm/optimizer-arm64:0.17.0` (Rust 1.86)
-- **CosmWasm:** 3.0.4
-- **Pinned deps:** `serde_with@3.12.0`, `darling@0.20.11` (Rust 1.86 compat)
+These contracts use the old XP/badges/levels system and are no longer active.
 
-### Signer
-- **Address:** `xion18hjhxkrmrp0gag3rgl7xh00y95vetnj9unf96x`
-- **Key name:** `tidepool-signer`
+---
 
-### Store TXs
-- Reputation: `80BDEC8995E7580DC627384F651D08CA01BF5D207F54F74087F6C79AED77271B`
-- Tasks: `5CEADB3F465D19E0A7C9D0CDBA63C799EB87EF9C63668E98868F08549610532B`
-
-### Instantiate TXs
-- Reputation: `93C400A55263D6D4D35F282D2476F3F927C2768FE4E35223DD98B6A6BAF274F9`
-- Tasks: `004848BE7325B8A98AE43638DEE05F571076B55D79A6C8270BC5A4B00B3F9032`
-
-### Checksums (optimizer output)
-```
-e6e0c8fa8812036f68f14081c94d5954a0b0ae4ff427f9e4836be9ad4b17956b  tidepool_reputation.wasm
-ae8f31716473a907744e3599a11265e1f2b6d61301b6ddbc950d7cdbeb6418dc  tidepool_tasks.wasm
-```
+**Chain:** xion-testnet-2
+**RPC:** https://rpc.xion-testnet-2.burnt.com:443
+**REST:** https://api.xion-testnet-2.burnt.com
+**Gas:** 0.025uxion, adjustment 1.5
+**Primary wallet:** xion18hjhxkrmrp0gag3rgl7xh00y95vetnj9unf96x (tidepool-signer)

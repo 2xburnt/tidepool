@@ -3,7 +3,7 @@ export const CHAIN_CONFIG = {
   restEndpoint: "https://api.xion-testnet-2.burnt.com",
   chainId: "xion-testnet-2",
   contracts: {
-    reputation: "xion13a7zj373ztxcm5mux7hvkvp3mr575t9rmnkhcgm0xvma2fxc6dzqkdaewv",
-    tasks: "xion15tzqfeykxkfvflty63zg6vws75e2u334vjr8s7w7ja8rd4gpd9es7lld4c",
+    reputation: "xion1fmpz0w6m0v8rry7fxw3rd0l55sq4t3r8qv05f2wzp2mfhjwl6mqsggxfd5",
+    tasks: "xion19v2dnk33ws7ka8mcr2lqvf9f7ah4znv3v95jvfl9m8gx64p3c4gsc4489j",
   },
 };
