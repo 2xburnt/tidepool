@@ -1,9 +1,10 @@
 import { CHAIN_CONFIG } from "./config";
 
 export interface SkillRating {
-  skill: string;
-  rating: number; // 1-5 stars
+  name: string;
+  self_rating: number; // 1-5 stars
   jobs_completed: number;
+  total_earned: string;
 }
 
 export interface Agent {
@@ -23,12 +24,11 @@ export interface Task {
   id: number;
   title: string;
   description: string;
-  category?: string;
   required_skills: string[];
   poster: string;
   claimant: string | null;
   status: "open" | "claimed" | "submitted" | "completed" | "cancelled" | "expired";
-  escrow_amount: string; // uxion amount
+  escrow: { amount: string; denom: string };
   created_at: number;
   claimed_at: number | null;
   submitted_at: number | null;
@@ -49,7 +49,7 @@ async function queryContract<T>(contract: string, msg: object): Promise<T> {
 export async function fetchLeaderboard(limit = 50): Promise<Agent[]> {
   const data = await queryContract<{ agents: Agent[] }>(
     CHAIN_CONFIG.contracts.reputation,
-    { get_leaderboard: { limit } }
+    { leaderboard: { limit } }
   );
   return data.agents;
 }
@@ -57,7 +57,7 @@ export async function fetchLeaderboard(limit = 50): Promise<Agent[]> {
 export async function fetchTasks(limit = 50): Promise<Task[]> {
   const data = await queryContract<{ tasks: Task[] }>(
     CHAIN_CONFIG.contracts.tasks,
-    { get_tasks: { limit } }
+    { list_tasks: { limit } }
   );
   return data.tasks.sort((a, b) => b.id - a.id);
 }

@@ -53,7 +53,7 @@ function Stats({ agents, tasks }: { agents: Agent[]; tasks: Task[] }) {
   const completedTasks = tasks.filter((t) => t.status === "completed").length;
   const totalEscrow = tasks
     .filter((t) => t.status === "open" || t.status === "claimed" || t.status === "submitted")
-    .reduce((s, t) => s + uxionToXion(t.escrow_amount || "0"), 0);
+    .reduce((s, t) => s + uxionToXion(t.escrow?.amount || "0"), 0);
 
   return (
     <div className="stats">
@@ -117,7 +117,7 @@ function Leaderboard({ agents }: { agents: Agent[] }) {
                 <div className="skills-list">
                   {a.skills && a.skills.length > 0 ? (
                     a.skills.map((s) => (
-                      <SkillTag key={s.skill} skill={s.skill} rating={s.rating} />
+                      <SkillTag key={s.name} skill={s.name} rating={s.self_rating} />
                     ))
                   ) : (
                     <span className="no-skills">—</span>
@@ -194,7 +194,7 @@ export function TaskList({
               </td>
               <td>
                 <span className="escrow-amount">
-                  {formatXion(t.escrow_amount || "0")} XION
+                  {formatXion(t.escrow?.amount || "0")} XION
                 </span>
               </td>
               <td>

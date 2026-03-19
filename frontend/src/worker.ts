@@ -88,7 +88,7 @@ async function handleApi(path: string, request: Request, ctx: ExecutionContext):
         const { data, cached } = await cachedQuery(
           `leaderboard:${limit}`,
           30,
-          () => queryContract(CONTRACTS.reputation, { get_leaderboard: { limit } }),
+          () => queryContract(CONTRACTS.reputation, { leaderboard: { limit } }),
           ctx
         );
         return jsonResponse(data, 200, 30, cached);
@@ -104,7 +104,7 @@ async function handleApi(path: string, request: Request, ctx: ExecutionContext):
         const { data, cached } = await cachedQuery(
           cacheKey,
           15,
-          () => queryContract(CONTRACTS.tasks, { get_tasks: query }),
+          () => queryContract(CONTRACTS.tasks, { list_tasks: query }),
           ctx
         );
         return jsonResponse(data, 200, 15, cached);
@@ -142,11 +142,11 @@ async function handleApi(path: string, request: Request, ctx: ExecutionContext):
           30,
           async () => {
             const [agents, tasks] = await Promise.all([
-              queryContract(CONTRACTS.reputation, { get_leaderboard: { limit: 100 } }) as Promise<{
+              queryContract(CONTRACTS.reputation, { leaderboard: { limit: 100 } }) as Promise<{
                 agents: { total_earned: string; jobs_completed: number }[];
               }>,
-              queryContract(CONTRACTS.tasks, { get_tasks: { limit: 100 } }) as Promise<{
-                tasks: { status: string; escrow_amount: string }[];
+              queryContract(CONTRACTS.tasks, { list_tasks: { limit: 100 } }) as Promise<{
+                tasks: { status: string; escrow: { amount: string; denom: string } }[];
               }>,
             ]);
             const agentList = agents.agents || [];
@@ -158,7 +158,7 @@ async function handleApi(path: string, request: Request, ctx: ExecutionContext):
             const totalEscrow = taskList
               .filter((t: { status: string }) => ["open", "claimed", "submitted"].includes(t.status))
               .reduce(
-                (s: number, t: { escrow_amount: string }) => s + uxionToXion(t.escrow_amount || "0"),
+                (s: number, t: { escrow: { amount: string } }) => s + uxionToXion(t.escrow?.amount || "0"),
                 0
               );
             return {
