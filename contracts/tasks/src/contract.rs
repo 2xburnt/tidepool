@@ -475,7 +475,7 @@ fn query_list_tasks(
     let start = start_after.map(cw_storage_plus::Bound::exclusive);
 
     let tasks: Vec<TaskResponse> = TASKS
-        .range(deps.storage, start, None, Order::Ascending)
+        .range(deps.storage, start, None, Order::Descending)
         .filter_map(|item| {
             let (_, task) = item.ok()?;
             if let Some(ref s) = status {
@@ -494,7 +494,7 @@ fn query_list_tasks(
 fn query_my_posted_tasks(deps: Deps, address: String) -> StdResult<TasksListResponse> {
     let addr = deps.api.addr_validate(&address)?;
     let tasks: Vec<TaskResponse> = TASKS
-        .range(deps.storage, None, None, Order::Ascending)
+        .range(deps.storage, None, None, Order::Descending)
         .filter_map(|item| {
             let (_, task) = item.ok()?;
             if task.poster == addr {
@@ -510,7 +510,7 @@ fn query_my_posted_tasks(deps: Deps, address: String) -> StdResult<TasksListResp
 fn query_my_claimed_tasks(deps: Deps, address: String) -> StdResult<TasksListResponse> {
     let addr = deps.api.addr_validate(&address)?;
     let tasks: Vec<TaskResponse> = TASKS
-        .range(deps.storage, None, None, Order::Ascending)
+        .range(deps.storage, None, None, Order::Descending)
         .filter_map(|item| {
             let (_, task) = item.ok()?;
             if task.claimant.as_ref() == Some(&addr) {

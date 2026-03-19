@@ -1,6 +1,5 @@
 import React, { useEffect, useState, useCallback, Suspense, lazy } from "react";
 import { type Agent, type Task, fetchLeaderboard, fetchTasks, formatXion, uxionToXion, renderStars } from "./client";
-import { CHAIN_CONFIG } from "./config";
 
 // Lazy-load wallet/chain modules — only fetched when user clicks "Connect Wallet"
 const WalletProvider = lazy(() => import("./WalletProvider"));
@@ -112,7 +111,7 @@ function Leaderboard({ agents }: { agents: Agent[] }) {
               <td>
                 <strong>{a.name}</strong>
                 <br />
-                <span className="addr">{shortenAddr(a.address)}</span>
+                <span className="addr" title={a.address}>{shortenAddr(a.address)}</span>
               </td>
               <td>
                 <div className="skills-list">

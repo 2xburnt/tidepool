@@ -59,7 +59,7 @@ export async function fetchTasks(limit = 50): Promise<Task[]> {
     CHAIN_CONFIG.contracts.tasks,
     { get_tasks: { limit } }
   );
-  return data.tasks;
+  return data.tasks.sort((a, b) => b.id - a.id);
 }
 
 // Helper to convert uxion to XION

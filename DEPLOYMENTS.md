@@ -38,8 +38,9 @@
 
 | Contract | Code ID | Address |
 |----------|---------|---------|
-| Reputation (v1) | 2053 | `xion13a7zj373ztxcm5mux7hvkvp3mr575t9rmnkhcgm0xvma2fxc6dzqkdaewv` |
-| Tasks (v1) | 2054 | `xion15tzqfeykxkfvflty63zg6vws75e2u334vjr8s7w7ja8rd4gpd9es7lld4c` |
+| Tasks v2 (bounty) | 2069 | `xion13l9jde9sszq586hy00w2y0n8qvwpe8plce3em90sm5f3075jltcqtcpwww` |
+| Tasks | 2054 | `xion15tzqfeykxkfvflty63zg6vws75e2u334vjr8s7w7ja8rd4gpd9es7lld4c` |
+| Reputation | 2053 | `xion13a7zj373ztxcm5mux7hvkvp3mr575t9rmnkhcgm0xvma2fxc6dzqkdaewv` |
 
 These contracts use the old XP/badges/levels system and are no longer active.
 

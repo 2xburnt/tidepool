@@ -6,3 +6,9 @@ signed_tx.json
 tx.json
 deploy.json
 artifacts/
+
+# wrangler files
+.wrangler
+.dev.vars*
+!.dev.vars.example
+!.env.example
