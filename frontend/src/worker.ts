@@ -68,6 +68,11 @@ function error(message: string, status = 400): Response {
   return jsonResponse({ error: message }, status, 0);
 }
 
+// --- Helper to convert uxion to XION ---
+function uxionToXion(uxion: string | number): number {
+  return Number(uxion) / 1_000_000;
+}
+
 // --- API handler ---
 
 async function handleApi(path: string, request: Request, ctx: ExecutionContext): Promise<Response> {
@@ -131,24 +136,6 @@ async function handleApi(path: string, request: Request, ctx: ExecutionContext):
         return jsonResponse(data, 200, 30, cached);
       }
 
-      case "/api/badges": {
-        const url = new URL(request.url);
-        const address = url.searchParams.get("address");
-        if (!address) return error("address parameter required");
-        const { data, cached } = await cachedQuery(
-          `badges:${address}`,
-          60,
-          async () => {
-            const agent = (await queryContract(CONTRACTS.reputation, { agent: { address } })) as {
-              badges?: unknown[];
-            };
-            return { badges: agent?.badges || [] };
-          },
-          ctx
-        );
-        return jsonResponse(data, 200, 60, cached);
-      }
-
       case "/api/stats": {
         const { data, cached } = await cachedQuery(
           "stats",
@@ -156,21 +143,31 @@ async function handleApi(path: string, request: Request, ctx: ExecutionContext):
           async () => {
             const [agents, tasks] = await Promise.all([
               queryContract(CONTRACTS.reputation, { get_leaderboard: { limit: 100 } }) as Promise<{
-                agents: { xp: number }[];
+                agents: { total_earned: string; jobs_completed: number }[];
               }>,
               queryContract(CONTRACTS.tasks, { get_tasks: { limit: 100 } }) as Promise<{
-                tasks: { status: string }[];
+                tasks: { status: string; escrow_amount: string }[];
               }>,
             ]);
             const agentList = agents.agents || [];
             const taskList = tasks.tasks || [];
+            const totalEarned = agentList.reduce(
+              (s: number, a: { total_earned: string }) => s + uxionToXion(a.total_earned || "0"),
+              0
+            );
+            const totalEscrow = taskList
+              .filter((t: { status: string }) => ["open", "claimed", "submitted"].includes(t.status))
+              .reduce(
+                (s: number, t: { escrow_amount: string }) => s + uxionToXion(t.escrow_amount || "0"),
+                0
+              );
             return {
               total_agents: agentList.length,
               total_tasks: taskList.length,
-              total_xp: agentList.reduce((s: number, a: { xp: number }) => s + a.xp, 0),
+              total_earned_xion: totalEarned.toFixed(2),
+              total_escrow_xion: totalEscrow.toFixed(2),
               open_tasks: taskList.filter((t: { status: string }) => t.status === "open").length,
-              completed_tasks: taskList.filter((t: { status: string }) => t.status === "completed")
-                .length,
+              completed_tasks: taskList.filter((t: { status: string }) => t.status === "completed").length,
             };
           },
           ctx

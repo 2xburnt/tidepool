@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useCallback, Suspense, lazy } from "react";
-import { type Agent, type Task, fetchLeaderboard, fetchTasks } from "./client";
+import { type Agent, type Task, fetchLeaderboard, fetchTasks, formatXion, uxionToXion, renderStars } from "./client";
 import { CHAIN_CONFIG } from "./config";
 
 // Lazy-load wallet/chain modules — only fetched when user clicks "Connect Wallet"
@@ -10,16 +10,20 @@ function shortenAddr(addr: string): string {
   return addr.slice(0, 10) + "..." + addr.slice(-6);
 }
 
+const STATUS_COLORS: Record<string, string> = {
+  open: "#22c55e",      // green
+  claimed: "#f59e0b",   // yellow
+  submitted: "#3b82f6", // blue
+  completed: "#6b7280", // grey
+  cancelled: "#ef4444", // red
+  expired: "#6b7280",   // grey
+};
+
 function StatusBadge({ status }: { status: string }) {
-  const colors: Record<string, string> = {
-    open: "#22c55e",
-    claimed: "#f59e0b",
-    completed: "#6366f1",
-  };
   return (
     <span
       style={{
-        background: colors[status] || "#6b7280",
+        background: STATUS_COLORS[status] || "#6b7280",
         color: "#fff",
         padding: "2px 10px",
         borderRadius: 12,
@@ -33,14 +37,24 @@ function StatusBadge({ status }: { status: string }) {
   );
 }
 
+function SkillTag({ skill, rating }: { skill: string; rating?: number }) {
+  return (
+    <span className="skill-tag">
+      {skill}
+      {rating !== undefined && (
+        <span className="skill-rating"> {renderStars(rating)}</span>
+      )}
+    </span>
+  );
+}
+
 function Stats({ agents, tasks }: { agents: Agent[]; tasks: Task[] }) {
-  const totalXp = agents.reduce((s, a) => s + a.xp, 0);
+  const totalEarned = agents.reduce((s, a) => s + uxionToXion(a.total_earned || "0"), 0);
   const openTasks = tasks.filter((t) => t.status === "open").length;
   const completedTasks = tasks.filter((t) => t.status === "completed").length;
-  const totalBounties = tasks.reduce((s, t) => {
-    if (t.bounty) return s + Number(t.bounty.amount) / 1_000_000;
-    return s;
-  }, 0);
+  const totalEscrow = tasks
+    .filter((t) => t.status === "open" || t.status === "claimed" || t.status === "submitted")
+    .reduce((s, t) => s + uxionToXion(t.escrow_amount || "0"), 0);
 
   return (
     <div className="stats">
@@ -49,12 +63,12 @@ function Stats({ agents, tasks }: { agents: Agent[]; tasks: Task[] }) {
         <div className="stat-label">Agents</div>
       </div>
       <div className="stat">
-        <div className="stat-value">{totalXp}</div>
-        <div className="stat-label">Total XP</div>
+        <div className="stat-value" style={{ color: "#22c55e" }}>{totalEarned.toFixed(1)}</div>
+        <div className="stat-label">XION Earned</div>
       </div>
       <div className="stat">
-        <div className="stat-value" style={{ color: "#d97706" }}>{totalBounties.toFixed(1)}</div>
-        <div className="stat-label">XION Bounties</div>
+        <div className="stat-value" style={{ color: "#d97706" }}>{totalEscrow.toFixed(1)}</div>
+        <div className="stat-label">XION in Escrow</div>
       </div>
       <div className="stat">
         <div className="stat-value">{openTasks}</div>
@@ -73,6 +87,11 @@ function Stats({ agents, tasks }: { agents: Agent[]; tasks: Task[] }) {
 }
 
 function Leaderboard({ agents }: { agents: Agent[] }) {
+  // Sort by total_earned descending
+  const sortedAgents = [...agents].sort(
+    (a, b) => uxionToXion(b.total_earned || "0") - uxionToXion(a.total_earned || "0")
+  );
+
   return (
     <div className="card">
       <h2>🏆 Leaderboard</h2>
@@ -81,14 +100,13 @@ function Leaderboard({ agents }: { agents: Agent[] }) {
           <tr>
             <th>#</th>
             <th>Agent</th>
-            <th>Level</th>
-            <th>XP</th>
-            <th>Tasks</th>
-            <th>Badges</th>
+            <th>Skills</th>
+            <th>Total Earned</th>
+            <th>Jobs</th>
           </tr>
         </thead>
         <tbody>
-          {agents.map((a, i) => (
+          {sortedAgents.map((a, i) => (
             <tr key={a.address}>
               <td>{i + 1}</td>
               <td>
@@ -97,21 +115,23 @@ function Leaderboard({ agents }: { agents: Agent[] }) {
                 <span className="addr">{shortenAddr(a.address)}</span>
               </td>
               <td>
-                <span className="level">Lv.{a.level}</span>
+                <div className="skills-list">
+                  {a.skills && a.skills.length > 0 ? (
+                    a.skills.map((s) => (
+                      <SkillTag key={s.skill} skill={s.skill} rating={s.rating} />
+                    ))
+                  ) : (
+                    <span className="no-skills">—</span>
+                  )}
+                </div>
               </td>
-              <td>{a.xp}</td>
               <td>
-                {a.tasks_completed}✅ {a.tasks_posted}📝
+                <span className="xion-amount">
+                  {formatXion(a.total_earned || "0")} XION
+                </span>
               </td>
               <td>
-                {a.badges.map((b) => (
-                  <span key={b.badge_type} className="badge">
-                    {b.badge_type}
-                  </span>
-                ))}
-                {a.badges.length === 0 && (
-                  <span className="no-badge">—</span>
-                )}
+                {a.jobs_completed}✅ {a.jobs_posted}📝
               </td>
             </tr>
           ))}
@@ -137,13 +157,16 @@ export function TaskList({
   return (
     <div className="card">
       <h2>📋 Tasks</h2>
+      <div className="post-task-info">
+        <span>💰 Minimum escrow: <strong>0.1 XION</strong></span>
+      </div>
       <table>
         <thead>
           <tr>
             <th>ID</th>
             <th>Title</th>
-            <th>XP</th>
-            <th>Bounty</th>
+            <th>Required Skills</th>
+            <th>Escrow</th>
             <th>Status</th>
             <th>Poster</th>
             <th>Claimant</th>
@@ -160,16 +183,20 @@ export function TaskList({
                 <span className="desc">{t.description.slice(0, 80)}</span>
               </td>
               <td>
-                <span className="xp-reward">+{t.xp_reward} XP</span>
+                <div className="skills-list">
+                  {t.required_skills && t.required_skills.length > 0 ? (
+                    t.required_skills.map((skill) => (
+                      <SkillTag key={skill} skill={skill} />
+                    ))
+                  ) : (
+                    <span className="no-skills">Any</span>
+                  )}
+                </div>
               </td>
               <td>
-                {t.bounty ? (
-                  <span style={{ color: "#d97706", fontWeight: 700 }}>
-                    {(Number(t.bounty.amount) / 1_000_000).toFixed(1)} XION
-                  </span>
-                ) : (
-                  "—"
-                )}
+                <span className="escrow-amount">
+                  {formatXion(t.escrow_amount || "0")} XION
+                </span>
               </td>
               <td>
                 <StatusBadge status={t.status} />
@@ -279,7 +306,7 @@ export default function App() {
           <div>
             <h1>🌊 Tidepool</h1>
             <p className="subtitle">
-              Decentralized Agent Reputation System on Xion
+              Agent Services Marketplace on Xion
             </p>
           </div>
           {!walletRequested ? (

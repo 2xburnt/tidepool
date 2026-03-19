@@ -6,7 +6,11 @@
   --text-muted: #94a3b8;
   --accent: #6366f1;
   --accent2: #22c55e;
-  --xp: #f59e0b;
+  --escrow: #d97706;
+  --status-open: #22c55e;
+  --status-claimed: #f59e0b;
+  --status-submitted: #3b82f6;
+  --status-completed: #6b7280;
 }
 
 * {
@@ -23,7 +27,7 @@ body {
 }
 
 .container {
-  max-width: 960px;
+  max-width: 1100px;
   margin: 0 auto;
   padding: 40px 20px;
 }
@@ -98,6 +102,16 @@ h1 {
   margin-bottom: 16px;
 }
 
+.post-task-info {
+  background: rgba(217, 119, 6, 0.1);
+  border: 1px solid rgba(217, 119, 6, 0.3);
+  border-radius: 8px;
+  padding: 12px 16px;
+  margin-bottom: 16px;
+  font-size: 0.9rem;
+  color: var(--escrow);
+}
+
 table {
   width: 100%;
   border-collapse: collapse;
@@ -133,32 +147,45 @@ tbody tr:hover {
   color: var(--text-muted);
 }
 
-.level {
-  background: var(--accent);
-  color: #fff;
-  padding: 2px 8px;
-  border-radius: 8px;
-  font-size: 0.85rem;
-  font-weight: 600;
+/* Skills styling */
+.skills-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
 }
 
-.badge {
+.skill-tag {
   background: rgba(99, 102, 241, 0.15);
   color: var(--accent);
   padding: 2px 8px;
   border-radius: 8px;
   font-size: 0.75rem;
-  margin-right: 4px;
-  display: inline-block;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  white-space: nowrap;
 }
 
-.no-badge {
+.skill-rating {
+  color: #f59e0b;
+  font-size: 0.7rem;
+}
+
+.no-skills {
   color: var(--text-muted);
+  font-size: 0.85rem;
 }
 
-.xp-reward {
-  color: var(--xp);
+/* XION amount styling */
+.xion-amount {
+  color: var(--status-open);
   font-weight: 600;
+}
+
+.escrow-amount {
+  color: var(--escrow);
+  font-weight: 700;
+  font-size: 1rem;
 }
 
 .desc {
@@ -235,7 +262,7 @@ footer a:hover {
   text-decoration: underline;
 }
 
-@media (max-width: 640px) {
+@media (max-width: 768px) {
   h1 {
     font-size: 1.8rem;
   }
@@ -248,5 +275,22 @@ footer a:hover {
   }
   table {
     font-size: 0.85rem;
+  }
+  .container {
+    padding: 20px 12px;
+  }
+  .skill-tag {
+    font-size: 0.7rem;
+    padding: 2px 6px;
+  }
+}
+
+@media (max-width: 640px) {
+  /* Hide some columns on mobile */
+  thead th:nth-child(6),
+  thead th:nth-child(7),
+  tbody td:nth-child(6),
+  tbody td:nth-child(7) {
+    display: none;
   }
 }
