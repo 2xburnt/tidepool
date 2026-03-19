@@ -1,21 +1,20 @@
 #[cfg(test)]
 mod tests {
-    use cosmwasm_std::{
-        testing::{message_info, mock_env, MockApi},
-        to_json_binary, Addr, Coin, ContractResult, Empty, Env, OwnedDeps, SystemResult,
-        Uint128, Uint256, WasmQuery,
-    };
     use cosmwasm_std::testing::MockStorage;
+    use cosmwasm_std::{
+        Addr, Coin, ContractResult, Empty, Env, OwnedDeps, SystemResult, Uint128, Uint256,
+        WasmQuery,
+        testing::{MockApi, message_info, mock_env},
+        to_json_binary,
+    };
 
     use crate::contract::{execute, instantiate};
     use crate::error::ContractError;
     use crate::msg::{ExecuteMsg, InstantiateMsg};
-    use tidepool_types::{AgentResponse, ReputationQueryMsg, ESCROW_DENOM};
+    use tidepool_types::{AgentResponse, ESCROW_DENOM, ReputationQueryMsg};
 
     // Custom MockQuerier that handles reputation contract queries
-    use cosmwasm_std::{
-        Binary, Querier, QuerierResult, QueryRequest, SystemError,
-    };
+    use cosmwasm_std::{Binary, Querier, QuerierResult, QueryRequest, SystemError};
 
     const REP_CONTRACT: &str = "reputation_contract";
 
@@ -39,10 +38,12 @@ mod tests {
         fn raw_query(&self, bin_request: &[u8]) -> QuerierResult {
             let request: QueryRequest<Empty> = match cosmwasm_std::from_json(bin_request) {
                 Ok(r) => r,
-                Err(e) => return SystemResult::Err(SystemError::InvalidRequest {
-                    error: e.to_string(),
-                    request: Binary::from(bin_request.to_vec()),
-                }),
+                Err(e) => {
+                    return SystemResult::Err(SystemError::InvalidRequest {
+                        error: e.to_string(),
+                        request: Binary::from(bin_request.to_vec()),
+                    });
+                }
             };
 
             match &request {
@@ -61,13 +62,9 @@ mod tests {
                                     jobs_posted: 0,
                                     registered_at: 0,
                                 };
-                                SystemResult::Ok(ContractResult::Ok(
-                                    to_json_binary(&resp).unwrap(),
-                                ))
+                                SystemResult::Ok(ContractResult::Ok(to_json_binary(&resp).unwrap()))
                             } else {
-                                SystemResult::Ok(ContractResult::Err(
-                                    "Agent not found".to_string(),
-                                ))
+                                SystemResult::Ok(ContractResult::Err("Agent not found".to_string()))
                             }
                         }
                     }
@@ -144,8 +141,16 @@ mod tests {
 
         assert!(res.is_ok());
         let resp = res.unwrap();
-        assert!(resp.attributes.iter().any(|a| a.key == "method" && a.value == "post_task"));
-        assert!(resp.attributes.iter().any(|a| a.key == "task_id" && a.value == "1"));
+        assert!(
+            resp.attributes
+                .iter()
+                .any(|a| a.key == "method" && a.value == "post_task")
+        );
+        assert!(
+            resp.attributes
+                .iter()
+                .any(|a| a.key == "task_id" && a.value == "1")
+        );
     }
 
     #[test]

@@ -1,15 +1,15 @@
 use cosmwasm_std::{
-    entry_point, to_json_binary, Binary, Deps, DepsMut, Env, MessageInfo, Order, Response,
-    StdResult, Uint128,
+    Binary, Deps, DepsMut, Env, MessageInfo, Order, Response, StdResult, Uint128, entry_point,
+    to_json_binary,
 };
 use cw2::set_contract_version;
 
 use crate::error::ContractError;
 use crate::msg::{ExecuteMsg, InstantiateMsg, QueryMsg};
-use crate::state::{Agent, Config, AGENTS, AGENT_COUNT, CONFIG};
+use crate::state::{AGENT_COUNT, AGENTS, Agent, CONFIG, Config};
 use tidepool_types::{
-    AgentResponse, AgentsListResponse, LeaderboardResponse, ReputationConfigResponse,
-    Skill, SkillInput,
+    AgentResponse, AgentsListResponse, LeaderboardResponse, ReputationConfigResponse, Skill,
+    SkillInput,
 };
 
 const CONTRACT_NAME: &str = "crates.io:tidepool-reputation";
@@ -133,25 +133,29 @@ fn execute_update_skills(
 ) -> Result<Response, ContractError> {
     validate_skill_inputs(&skill_inputs)?;
 
-    AGENTS.update(deps.storage, &info.sender, |agent| -> Result<_, ContractError> {
-        let mut agent = agent.ok_or(ContractError::AgentNotFound {})?;
+    AGENTS.update(
+        deps.storage,
+        &info.sender,
+        |agent| -> Result<_, ContractError> {
+            let mut agent = agent.ok_or(ContractError::AgentNotFound {})?;
 
-        for input in &skill_inputs {
-            if let Some(existing) = agent.skills.iter_mut().find(|s| s.name == input.name) {
-                // Update rating, keep stats
-                existing.self_rating = input.rating;
-            } else {
-                // Add new skill
-                agent.skills.push(Skill {
-                    name: input.name.clone(),
-                    self_rating: input.rating,
-                    jobs_completed: 0,
-                    total_earned: Uint128::zero(),
-                });
+            for input in &skill_inputs {
+                if let Some(existing) = agent.skills.iter_mut().find(|s| s.name == input.name) {
+                    // Update rating, keep stats
+                    existing.self_rating = input.rating;
+                } else {
+                    // Add new skill
+                    agent.skills.push(Skill {
+                        name: input.name.clone(),
+                        self_rating: input.rating,
+                        jobs_completed: 0,
+                        total_earned: Uint128::zero(),
+                    });
+                }
             }
-        }
-        Ok(agent)
-    })?;
+            Ok(agent)
+        },
+    )?;
 
     Ok(Response::new()
         .add_attribute("method", "update_skills")
@@ -185,8 +189,8 @@ fn execute_update_volume(
 ) -> Result<Response, ContractError> {
     // Only the task contract or owner can call this
     let config = CONFIG.load(deps.storage)?;
-    let authorized = info.sender == config.owner
-        || config.task_contract.as_ref() == Some(&info.sender);
+    let authorized =
+        info.sender == config.owner || config.task_contract.as_ref() == Some(&info.sender);
     if !authorized {
         return Err(ContractError::Unauthorized {});
     }

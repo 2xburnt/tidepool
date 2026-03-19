@@ -22,11 +22,11 @@ pub struct Task {
     pub escrow: Coin,
     pub status: TaskStatus,
     pub claimant: Option<Addr>,
-    pub created_at: u64,       // block height
-    pub claimed_at: Option<u64>,    // block height
-    pub submitted_at: Option<u64>,  // block time (seconds) for auto-release
-    pub completed_at: Option<u64>,  // block height
-    pub expires_at: Option<u64>,    // block height
+    pub created_at: u64,           // block height
+    pub claimed_at: Option<u64>,   // block height
+    pub submitted_at: Option<u64>, // block time (seconds) for auto-release
+    pub completed_at: Option<u64>, // block height
+    pub expires_at: Option<u64>,   // block height
 }
 
 pub const TASK_CONFIG: Item<TaskConfig> = Item::new("task_config");

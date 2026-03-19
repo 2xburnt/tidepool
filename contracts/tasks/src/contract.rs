@@ -1,16 +1,16 @@
 use cosmwasm_std::{
-    entry_point, to_json_binary, BankMsg, Binary, CosmosMsg, Deps, DepsMut, Env,
-    MessageInfo, Order, Response, StdResult, Uint128, Uint256, WasmMsg,
+    BankMsg, Binary, CosmosMsg, Deps, DepsMut, Env, MessageInfo, Order, Response, StdResult,
+    Uint128, Uint256, WasmMsg, entry_point, to_json_binary,
 };
 use cw2::set_contract_version;
 
 use crate::error::ContractError;
 use crate::msg::{ExecuteMsg, InstantiateMsg, QueryMsg};
-use crate::state::{Task, TaskConfig, TASKS, TASK_CONFIG};
+use crate::state::{TASK_CONFIG, TASKS, Task, TaskConfig};
 use tidepool_types::{
-    AgentResponse, ReputationExecuteMsg, ReputationQueryMsg,
-    TaskConfigResponse, TaskResponse, TaskStatus, TasksListResponse,
-    AUTO_RELEASE_SECONDS, DEFAULT_MINIMUM_ESCROW, ESCROW_DENOM,
+    AUTO_RELEASE_SECONDS, AgentResponse, DEFAULT_MINIMUM_ESCROW, ESCROW_DENOM,
+    ReputationExecuteMsg, ReputationQueryMsg, TaskConfigResponse, TaskResponse, TaskStatus,
+    TasksListResponse,
 };
 
 const CONTRACT_NAME: &str = "crates.io:tidepool-tasks";
@@ -60,7 +60,15 @@ pub fn execute(
             description,
             required_skills,
             expires_in_blocks,
-        } => execute_post_task(deps, env, info, title, description, required_skills, expires_in_blocks),
+        } => execute_post_task(
+            deps,
+            env,
+            info,
+            title,
+            description,
+            required_skills,
+            expires_in_blocks,
+        ),
         ExecuteMsg::ClaimTask { task_id } => execute_claim_task(deps, env, info, task_id),
         ExecuteMsg::SubmitTask { task_id } => execute_submit_task(deps, env, info, task_id),
         ExecuteMsg::ApproveTask { task_id } => execute_approve_task(deps, env, info, task_id),
@@ -294,7 +302,10 @@ fn execute_approve_task(
         .add_attribute("method", "approve_task")
         .add_attribute("task_id", task_id.to_string())
         .add_attribute("claimant", claimant)
-        .add_attribute("escrow_paid", format!("{}{}", task.escrow.amount, task.escrow.denom)))
+        .add_attribute(
+            "escrow_paid",
+            format!("{}{}", task.escrow.amount, task.escrow.denom),
+        ))
 }
 
 fn execute_auto_release(
@@ -328,7 +339,10 @@ fn execute_auto_release(
         .add_attribute("method", "auto_release")
         .add_attribute("task_id", task_id.to_string())
         .add_attribute("claimant", claimant)
-        .add_attribute("escrow_paid", format!("{}{}", task.escrow.amount, task.escrow.denom)))
+        .add_attribute(
+            "escrow_paid",
+            format!("{}{}", task.escrow.amount, task.escrow.denom),
+        ))
 }
 
 fn execute_cancel_task(
@@ -363,7 +377,10 @@ fn execute_cancel_task(
         .add_message(refund_msg)
         .add_attribute("method", "cancel_task")
         .add_attribute("task_id", task_id.to_string())
-        .add_attribute("escrow_refunded", format!("{}{}", task.escrow.amount, task.escrow.denom)))
+        .add_attribute(
+            "escrow_refunded",
+            format!("{}{}", task.escrow.amount, task.escrow.denom),
+        ))
 }
 
 fn execute_expire_task(
@@ -399,7 +416,10 @@ fn execute_expire_task(
         .add_message(refund_msg)
         .add_attribute("method", "expire_task")
         .add_attribute("task_id", task_id.to_string())
-        .add_attribute("escrow_refunded", format!("{}{}", task.escrow.amount, task.escrow.denom)))
+        .add_attribute(
+            "escrow_refunded",
+            format!("{}{}", task.escrow.amount, task.escrow.denom),
+        ))
 }
 
 fn execute_update_config(

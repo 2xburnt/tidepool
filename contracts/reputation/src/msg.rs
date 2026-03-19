@@ -1,4 +1,4 @@
-use cosmwasm_schema::{cw_serde, QueryResponses};
+use cosmwasm_schema::{QueryResponses, cw_serde};
 use tidepool_types::SkillInput;
 
 #[cw_serde]
@@ -33,11 +33,21 @@ pub enum QueryMsg {
     #[returns(tidepool_types::AgentResponse)]
     GetAgent { address: String },
     #[returns(tidepool_types::AgentsListResponse)]
-    ListAgents { start_after: Option<String>, limit: Option<u32> },
+    ListAgents {
+        start_after: Option<String>,
+        limit: Option<u32>,
+    },
     #[returns(tidepool_types::LeaderboardResponse)]
-    Leaderboard { limit: Option<u32>, skill: Option<String> },
+    Leaderboard {
+        limit: Option<u32>,
+        skill: Option<String>,
+    },
     #[returns(tidepool_types::AgentsListResponse)]
-    GetAgentsBySkill { skill: String, min_rating: Option<u8>, limit: Option<u32> },
+    GetAgentsBySkill {
+        skill: String,
+        min_rating: Option<u8>,
+        limit: Option<u32>,
+    },
     #[returns(tidepool_types::ReputationConfigResponse)]
     Config {},
 }

@@ -1,16 +1,16 @@
 #[cfg(test)]
 mod tests {
     use cosmwasm_std::{
-        testing::{message_info, mock_dependencies, mock_env, MockApi, MockQuerier, MockStorage},
         Addr, Attribute, Empty, Env, OwnedDeps, Uint128,
+        testing::{MockApi, MockQuerier, MockStorage, message_info, mock_dependencies, mock_env},
     };
 
     use crate::contract::{execute, instantiate, query};
     use crate::error::ContractError;
     use crate::msg::{ExecuteMsg, InstantiateMsg, QueryMsg};
     use tidepool_types::{
-        AgentResponse, AgentsListResponse, LeaderboardResponse, ReputationConfigResponse,
-        Skill, SkillInput,
+        AgentResponse, AgentsListResponse, LeaderboardResponse, ReputationConfigResponse, Skill,
+        SkillInput,
     };
 
     type TestDeps = OwnedDeps<MockStorage, MockApi, MockQuerier, Empty>;
@@ -111,16 +111,31 @@ mod tests {
             ExecuteMsg::Register {
                 name: "Alice Agent".to_string(),
                 skills: vec![
-                    SkillInput { name: "rust".to_string(), rating: 4 },
-                    SkillInput { name: "cosmwasm".to_string(), rating: 5 },
+                    SkillInput {
+                        name: "rust".to_string(),
+                        rating: 4,
+                    },
+                    SkillInput {
+                        name: "cosmwasm".to_string(),
+                        rating: 5,
+                    },
                 ],
             },
         )
         .unwrap();
 
-        assert!(res.attributes.contains(&Attribute::new("method", "register")));
-        assert!(res.attributes.contains(&Attribute::new("agent", alice.to_string())));
-        assert!(res.attributes.contains(&Attribute::new("name", "Alice Agent")));
+        assert!(
+            res.attributes
+                .contains(&Attribute::new("method", "register"))
+        );
+        assert!(
+            res.attributes
+                .contains(&Attribute::new("agent", alice.to_string()))
+        );
+        assert!(
+            res.attributes
+                .contains(&Attribute::new("name", "Alice Agent"))
+        );
 
         let agent = get_agent(&deps, &env, &alice);
         assert_eq!(agent.name, "Alice Agent");
@@ -151,11 +166,17 @@ mod tests {
             message_info(&alice, &[]),
             ExecuteMsg::Register {
                 name: "Alice".to_string(),
-                skills: vec![SkillInput { name: "rust".to_string(), rating: 0 }],
+                skills: vec![SkillInput {
+                    name: "rust".to_string(),
+                    rating: 0,
+                }],
             },
         )
         .unwrap_err();
-        assert!(matches!(err, ContractError::InvalidSkillRating { rating: 0 }));
+        assert!(matches!(
+            err,
+            ContractError::InvalidSkillRating { rating: 0 }
+        ));
 
         let err2 = execute(
             deps.as_mut(),
@@ -163,11 +184,17 @@ mod tests {
             message_info(&alice, &[]),
             ExecuteMsg::Register {
                 name: "Alice".to_string(),
-                skills: vec![SkillInput { name: "rust".to_string(), rating: 6 }],
+                skills: vec![SkillInput {
+                    name: "rust".to_string(),
+                    rating: 6,
+                }],
             },
         )
         .unwrap_err();
-        assert!(matches!(err2, ContractError::InvalidSkillRating { rating: 6 }));
+        assert!(matches!(
+            err2,
+            ContractError::InvalidSkillRating { rating: 6 }
+        ));
     }
 
     #[test]
@@ -202,7 +229,10 @@ mod tests {
             &env,
             &alice,
             "Alice",
-            vec![SkillInput { name: "rust".to_string(), rating: 3 }],
+            vec![SkillInput {
+                name: "rust".to_string(),
+                rating: 3,
+            }],
         );
 
         // Update existing + add new
@@ -212,8 +242,14 @@ mod tests {
             message_info(&alice, &[]),
             ExecuteMsg::UpdateSkills {
                 skills: vec![
-                    SkillInput { name: "rust".to_string(), rating: 5 },
-                    SkillInput { name: "typescript".to_string(), rating: 2 },
+                    SkillInput {
+                        name: "rust".to_string(),
+                        rating: 5,
+                    },
+                    SkillInput {
+                        name: "typescript".to_string(),
+                        rating: 2,
+                    },
                 ],
             },
         )
@@ -236,7 +272,10 @@ mod tests {
             env.clone(),
             message_info(&alice, &[]),
             ExecuteMsg::UpdateSkills {
-                skills: vec![SkillInput { name: "rust".to_string(), rating: 3 }],
+                skills: vec![SkillInput {
+                    name: "rust".to_string(),
+                    rating: 3,
+                }],
             },
         )
         .unwrap_err();
@@ -259,7 +298,10 @@ mod tests {
         )
         .unwrap();
 
-        assert!(res.attributes.contains(&Attribute::new("method", "set_task_contract")));
+        assert!(
+            res.attributes
+                .contains(&Attribute::new("method", "set_task_contract"))
+        );
         assert_eq!(get_config(&deps, &env).task_contract, Some(tasks));
     }
 
@@ -295,8 +337,14 @@ mod tests {
             &alice,
             "Alice",
             vec![
-                SkillInput { name: "cosmwasm".to_string(), rating: 5 },
-                SkillInput { name: "rust".to_string(), rating: 4 },
+                SkillInput {
+                    name: "cosmwasm".to_string(),
+                    rating: 5,
+                },
+                SkillInput {
+                    name: "rust".to_string(),
+                    rating: 4,
+                },
             ],
         );
         register_agent(&mut deps, &env, &bob, "Bob");
@@ -326,7 +374,10 @@ mod tests {
         )
         .unwrap();
 
-        assert!(res.attributes.contains(&Attribute::new("method", "update_volume")));
+        assert!(
+            res.attributes
+                .contains(&Attribute::new("method", "update_volume"))
+        );
         assert!(res.attributes.contains(&Attribute::new("amount", "500000")));
 
         let alice_agent = get_agent(&deps, &env, &alice);
@@ -334,12 +385,20 @@ mod tests {
         assert_eq!(alice_agent.jobs_completed, 1);
 
         // cosmwasm skill should be incremented
-        let cosmwasm_skill = alice_agent.skills.iter().find(|s| s.name == "cosmwasm").unwrap();
+        let cosmwasm_skill = alice_agent
+            .skills
+            .iter()
+            .find(|s| s.name == "cosmwasm")
+            .unwrap();
         assert_eq!(cosmwasm_skill.jobs_completed, 1);
         assert_eq!(cosmwasm_skill.total_earned, Uint128::new(500_000));
 
         // rust skill should NOT be incremented (not in task skills)
-        let rust_skill = alice_agent.skills.iter().find(|s| s.name == "rust").unwrap();
+        let rust_skill = alice_agent
+            .skills
+            .iter()
+            .find(|s| s.name == "rust")
+            .unwrap();
         assert_eq!(rust_skill.jobs_completed, 0);
         assert_eq!(rust_skill.total_earned, Uint128::zero());
 
@@ -430,7 +489,10 @@ mod tests {
             query(
                 deps.as_ref(),
                 env.clone(),
-                QueryMsg::Leaderboard { limit: Some(10), skill: None },
+                QueryMsg::Leaderboard {
+                    limit: Some(10),
+                    skill: None,
+                },
             )
             .unwrap(),
         )
@@ -457,14 +519,20 @@ mod tests {
             &env,
             &alice,
             "Alice",
-            vec![SkillInput { name: "cosmwasm".to_string(), rating: 5 }],
+            vec![SkillInput {
+                name: "cosmwasm".to_string(),
+                rating: 5,
+            }],
         );
         register_agent_with_skills(
             &mut deps,
             &env,
             &bob,
             "Bob",
-            vec![SkillInput { name: "cosmwasm".to_string(), rating: 3 }],
+            vec![SkillInput {
+                name: "cosmwasm".to_string(),
+                rating: 3,
+            }],
         );
 
         // Bob earns more overall, but Alice earns more on cosmwasm jobs
@@ -508,7 +576,7 @@ mod tests {
 
         assert_eq!(lb.agents.len(), 2);
         assert_eq!(lb.agents[0].address, alice); // 200 earned in cosmwasm
-        assert_eq!(lb.agents[1].address, bob);   // 100 earned in cosmwasm
+        assert_eq!(lb.agents[1].address, bob); // 100 earned in cosmwasm
     }
 
     #[test]
@@ -524,8 +592,14 @@ mod tests {
             &alice,
             "Alice",
             vec![
-                SkillInput { name: "rust".to_string(), rating: 5 },
-                SkillInput { name: "cosmwasm".to_string(), rating: 4 },
+                SkillInput {
+                    name: "rust".to_string(),
+                    rating: 5,
+                },
+                SkillInput {
+                    name: "cosmwasm".to_string(),
+                    rating: 4,
+                },
             ],
         );
         register_agent_with_skills(
@@ -533,14 +607,20 @@ mod tests {
             &env,
             &bob,
             "Bob",
-            vec![SkillInput { name: "rust".to_string(), rating: 2 }],
+            vec![SkillInput {
+                name: "rust".to_string(),
+                rating: 2,
+            }],
         );
         register_agent_with_skills(
             &mut deps,
             &env,
             &charlie,
             "Charlie",
-            vec![SkillInput { name: "typescript".to_string(), rating: 5 }],
+            vec![SkillInput {
+                name: "typescript".to_string(),
+                rating: 5,
+            }],
         );
 
         // All rust agents
@@ -605,7 +685,10 @@ mod tests {
             query(
                 deps.as_ref(),
                 env,
-                QueryMsg::Leaderboard { limit: Some(2), skill: None },
+                QueryMsg::Leaderboard {
+                    limit: Some(2),
+                    skill: None,
+                },
             )
             .unwrap(),
         )
@@ -691,7 +774,10 @@ mod tests {
             &env,
             &alice,
             "Alice",
-            vec![SkillInput { name: "cosmwasm".to_string(), rating: 5 }],
+            vec![SkillInput {
+                name: "cosmwasm".to_string(),
+                rating: 5,
+            }],
         );
         register_agent(&mut deps, &env, &bob, "Bob");
 
@@ -715,7 +801,11 @@ mod tests {
         assert_eq!(alice_agent.total_earned, Uint128::new(600_000));
         assert_eq!(alice_agent.jobs_completed, 3);
 
-        let cosmwasm_skill = alice_agent.skills.iter().find(|s| s.name == "cosmwasm").unwrap();
+        let cosmwasm_skill = alice_agent
+            .skills
+            .iter()
+            .find(|s| s.name == "cosmwasm")
+            .unwrap();
         assert_eq!(cosmwasm_skill.jobs_completed, 3);
         assert_eq!(cosmwasm_skill.total_earned, Uint128::new(600_000));
 
