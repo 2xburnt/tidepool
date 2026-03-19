@@ -175,7 +175,9 @@ fn execute_claim_task(
     }
 
     // Check expiry
-    if let Some(expires_at) = task.expires_at && env.block.height >= expires_at {
+    if let Some(expires_at) = task.expires_at
+        && env.block.height >= expires_at
+    {
         return Err(ContractError::TaskNotOpen {});
     }
 
@@ -491,7 +493,9 @@ fn query_list_tasks(
         .range(deps.storage, start, None, Order::Descending)
         .filter_map(|item| {
             let (_, task) = item.ok()?;
-            if let Some(ref s) = status && &task.status != s {
+            if let Some(ref s) = status
+                && &task.status != s
+            {
                 return None;
             }
             Some(task_to_response(&task))
