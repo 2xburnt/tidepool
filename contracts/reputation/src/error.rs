@@ -17,4 +17,7 @@ pub enum ContractError {
 
     #[error("Not an authorized issuer")]
     NotIssuer {},
+
+    #[error("Invalid skill rating: must be 1-5, got {rating}")]
+    InvalidSkillRating { rating: u8 },
 }

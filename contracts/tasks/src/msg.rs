@@ -12,11 +12,11 @@ pub struct InstantiateMsg {
 #[cw_serde]
 pub enum ExecuteMsg {
     /// Post a new task. Must send uxion funds >= minimum_escrow.
+    /// Poster must be registered in the reputation contract.
     PostTask {
         title: String,
         description: String,
-        category: Option<String>,
-        specializations: Vec<String>,
+        required_skills: Vec<String>,
         expires_in_blocks: Option<u64>,
     },
     /// Worker claims an open task.

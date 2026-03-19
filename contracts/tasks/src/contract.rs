@@ -1,6 +1,6 @@
 use cosmwasm_std::{
     entry_point, to_json_binary, BankMsg, Binary, CosmosMsg, Deps, DepsMut, Env,
-    MessageInfo, Order, Response, StdResult, Uint128, Uint256, WasmMsg,
+    MessageInfo, Order, Response, StdResult, Uint128, WasmMsg,
 };
 use cw2::set_contract_version;
 
@@ -8,7 +8,7 @@ use crate::error::ContractError;
 use crate::msg::{ExecuteMsg, InstantiateMsg, QueryMsg};
 use crate::state::{Task, TaskConfig, TASKS, TASK_CONFIG};
 use tidepool_types::{
-    ReputationExecuteMsg, ReputationQueryMsg, AgentResponse,
+    AgentResponse, ReputationExecuteMsg, ReputationQueryMsg,
     TaskConfigResponse, TaskResponse, TaskStatus, TasksListResponse,
     AUTO_RELEASE_SECONDS, DEFAULT_MINIMUM_ESCROW, ESCROW_DENOM,
 };
@@ -58,10 +58,9 @@ pub fn execute(
         ExecuteMsg::PostTask {
             title,
             description,
-            category,
-            specializations,
+            required_skills,
             expires_in_blocks,
-        } => execute_post_task(deps, env, info, title, description, category, specializations, expires_in_blocks),
+        } => execute_post_task(deps, env, info, title, description, required_skills, expires_in_blocks),
         ExecuteMsg::ClaimTask { task_id } => execute_claim_task(deps, env, info, task_id),
         ExecuteMsg::SubmitTask { task_id } => execute_submit_task(deps, env, info, task_id),
         ExecuteMsg::ApproveTask { task_id } => execute_approve_task(deps, env, info, task_id),
@@ -80,8 +79,7 @@ fn execute_post_task(
     info: MessageInfo,
     title: String,
     description: String,
-    category: Option<String>,
-    specializations: Vec<String>,
+    required_skills: Vec<String>,
     expires_in_blocks: Option<u64>,
 ) -> Result<Response, ContractError> {
     let mut config = TASK_CONFIG.load(deps.storage)?;
@@ -97,12 +95,24 @@ fn execute_post_task(
             got: sent.denom.clone(),
         });
     }
-    if sent.amount < Uint256::from(config.minimum_escrow) {
+    // SEC FIX: compare as Uint128 directly (was incorrectly widening to Uint256)
+    if sent.amount < config.minimum_escrow {
         return Err(ContractError::EscrowTooLow {
             sent: sent.amount.to_string(),
             minimum: config.minimum_escrow.to_string(),
         });
     }
+
+    // SEC FIX: require poster to be registered (prevents settlement failure for unregistered posters)
+    let _poster_agent: AgentResponse = deps
+        .querier
+        .query_wasm_smart(
+            &config.reputation_contract,
+            &ReputationQueryMsg::GetAgent {
+                address: info.sender.to_string(),
+            },
+        )
+        .map_err(|_| ContractError::AgentNotRegistered {})?;
 
     let task_id = config.next_task_id;
     config.next_task_id += 1;
@@ -114,8 +124,7 @@ fn execute_post_task(
         poster: info.sender.clone(),
         title: title.clone(),
         description,
-        category: category.clone(),
-        specializations: specializations.clone(),
+        required_skills: required_skills.clone(),
         escrow: sent.clone(),
         status: TaskStatus::Open,
         claimant: None,
@@ -238,14 +247,15 @@ fn settle_task(
         .into(),
     );
 
-    // Update volume in reputation contract
+    // Update volume in reputation contract — pass required_skills for per-skill tracking
     msgs.push(
         WasmMsg::Execute {
             contract_addr: config.reputation_contract.to_string(),
             msg: to_json_binary(&ReputationExecuteMsg::UpdateVolume {
                 worker: claimant.to_string(),
                 poster: task.poster.to_string(),
-                amount: Uint128::try_from(task.escrow.amount).unwrap(),
+                amount: task.escrow.amount,
+                skills: task.required_skills.clone(),
             })?,
             funds: vec![],
         }
@@ -436,8 +446,7 @@ fn task_to_response(task: &Task) -> TaskResponse {
         poster: task.poster.clone(),
         title: task.title.clone(),
         description: task.description.clone(),
-        category: task.category.clone(),
-        specializations: task.specializations.clone(),
+        required_skills: task.required_skills.clone(),
         escrow: task.escrow.clone(),
         status: task.status.clone(),
         claimant: task.claimant.clone(),

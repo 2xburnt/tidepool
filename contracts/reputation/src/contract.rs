@@ -7,10 +7,51 @@ use cw2::set_contract_version;
 use crate::error::ContractError;
 use crate::msg::{ExecuteMsg, InstantiateMsg, QueryMsg};
 use crate::state::{Agent, Config, AGENTS, AGENT_COUNT, CONFIG};
-use tidepool_types::{AgentResponse, AgentsListResponse, LeaderboardResponse, ReputationConfigResponse};
+use tidepool_types::{
+    AgentResponse, AgentsListResponse, LeaderboardResponse, ReputationConfigResponse,
+    Skill, SkillInput,
+};
 
 const CONTRACT_NAME: &str = "crates.io:tidepool-reputation";
 const CONTRACT_VERSION: &str = env!("CARGO_PKG_VERSION");
+
+// ─── Helpers ───
+
+fn validate_skill_inputs(inputs: &[SkillInput]) -> Result<(), ContractError> {
+    for s in inputs {
+        if s.rating < 1 || s.rating > 5 {
+            return Err(ContractError::InvalidSkillRating { rating: s.rating });
+        }
+    }
+    Ok(())
+}
+
+fn skills_from_inputs(inputs: &[SkillInput]) -> Vec<Skill> {
+    inputs
+        .iter()
+        .map(|si| Skill {
+            name: si.name.clone(),
+            self_rating: si.rating,
+            jobs_completed: 0,
+            total_earned: Uint128::zero(),
+        })
+        .collect()
+}
+
+fn agent_to_response(addr: &cosmwasm_std::Addr, agent: &Agent) -> AgentResponse {
+    AgentResponse {
+        address: addr.clone(),
+        name: agent.name.clone(),
+        skills: agent.skills.clone(),
+        total_earned: agent.total_earned,
+        total_spent: agent.total_spent,
+        jobs_completed: agent.jobs_completed,
+        jobs_posted: agent.jobs_posted,
+        registered_at: agent.registered_at,
+    }
+}
+
+// ─── Entry Points ───
 
 #[entry_point]
 pub fn instantiate(
@@ -41,16 +82,15 @@ pub fn execute(
     msg: ExecuteMsg,
 ) -> Result<Response, ContractError> {
     match msg {
-        ExecuteMsg::Register {
-            name,
-            specializations,
-        } => execute_register(deps, env, info, name, specializations),
+        ExecuteMsg::Register { name, skills } => execute_register(deps, env, info, name, skills),
+        ExecuteMsg::UpdateSkills { skills } => execute_update_skills(deps, info, skills),
         ExecuteMsg::SetTaskContract { address } => execute_set_task_contract(deps, info, address),
         ExecuteMsg::UpdateVolume {
             worker,
             poster,
             amount,
-        } => execute_update_volume(deps, info, worker, poster, amount),
+            skills,
+        } => execute_update_volume(deps, info, worker, poster, amount, skills),
     }
 }
 
@@ -59,15 +99,17 @@ fn execute_register(
     env: Env,
     info: MessageInfo,
     name: String,
-    specializations: Vec<String>,
+    skill_inputs: Vec<SkillInput>,
 ) -> Result<Response, ContractError> {
     if AGENTS.may_load(deps.storage, &info.sender)?.is_some() {
         return Err(ContractError::AlreadyRegistered {});
     }
 
+    validate_skill_inputs(&skill_inputs)?;
+
     let agent = Agent {
         name: name.clone(),
-        specializations: specializations.clone(),
+        skills: skills_from_inputs(&skill_inputs),
         total_earned: Uint128::zero(),
         total_spent: Uint128::zero(),
         jobs_completed: 0,
@@ -82,6 +124,38 @@ fn execute_register(
         .add_attribute("method", "register")
         .add_attribute("agent", info.sender)
         .add_attribute("name", name))
+}
+
+fn execute_update_skills(
+    deps: DepsMut,
+    info: MessageInfo,
+    skill_inputs: Vec<SkillInput>,
+) -> Result<Response, ContractError> {
+    validate_skill_inputs(&skill_inputs)?;
+
+    AGENTS.update(deps.storage, &info.sender, |agent| -> Result<_, ContractError> {
+        let mut agent = agent.ok_or(ContractError::AgentNotFound {})?;
+
+        for input in &skill_inputs {
+            if let Some(existing) = agent.skills.iter_mut().find(|s| s.name == input.name) {
+                // Update rating, keep stats
+                existing.self_rating = input.rating;
+            } else {
+                // Add new skill
+                agent.skills.push(Skill {
+                    name: input.name.clone(),
+                    self_rating: input.rating,
+                    jobs_completed: 0,
+                    total_earned: Uint128::zero(),
+                });
+            }
+        }
+        Ok(agent)
+    })?;
+
+    Ok(Response::new()
+        .add_attribute("method", "update_skills")
+        .add_attribute("agent", info.sender))
 }
 
 fn execute_set_task_contract(
@@ -107,6 +181,7 @@ fn execute_update_volume(
     worker_addr: String,
     poster_addr: String,
     amount: Uint128,
+    skills: Vec<String>,
 ) -> Result<Response, ContractError> {
     // Only the task contract or owner can call this
     let config = CONFIG.load(deps.storage)?;
@@ -119,11 +194,20 @@ fn execute_update_volume(
     let worker = deps.api.addr_validate(&worker_addr)?;
     let poster = deps.api.addr_validate(&poster_addr)?;
 
-    // Update worker stats
+    // Update worker stats + per-skill stats
     AGENTS.update(deps.storage, &worker, |agent| -> Result<_, ContractError> {
         let mut agent = agent.ok_or(ContractError::AgentNotFound {})?;
         agent.total_earned += amount;
         agent.jobs_completed += 1;
+
+        // Increment per-skill stats for matching skills
+        for skill_name in &skills {
+            if let Some(skill) = agent.skills.iter_mut().find(|s| &s.name == skill_name) {
+                skill.jobs_completed += 1;
+                skill.total_earned += amount;
+            }
+        }
+
         Ok(agent)
     })?;
 
@@ -142,6 +226,8 @@ fn execute_update_volume(
         .add_attribute("amount", amount))
 }
 
+// ─── Queries ───
+
 #[entry_point]
 pub fn query(deps: Deps, _env: Env, msg: QueryMsg) -> StdResult<Binary> {
     match msg {
@@ -149,21 +235,15 @@ pub fn query(deps: Deps, _env: Env, msg: QueryMsg) -> StdResult<Binary> {
         QueryMsg::ListAgents { start_after, limit } => {
             to_json_binary(&query_list_agents(deps, start_after, limit)?)
         }
-        QueryMsg::Leaderboard { limit } => to_json_binary(&query_leaderboard(deps, limit)?),
+        QueryMsg::Leaderboard { limit, skill } => {
+            to_json_binary(&query_leaderboard(deps, limit, skill)?)
+        }
+        QueryMsg::GetAgentsBySkill {
+            skill,
+            min_rating,
+            limit,
+        } => to_json_binary(&query_agents_by_skill(deps, skill, min_rating, limit)?),
         QueryMsg::Config {} => to_json_binary(&query_config(deps)?),
-    }
-}
-
-fn agent_to_response(addr: &cosmwasm_std::Addr, agent: &Agent) -> AgentResponse {
-    AgentResponse {
-        address: addr.clone(),
-        name: agent.name.clone(),
-        specializations: agent.specializations.clone(),
-        total_earned: agent.total_earned,
-        total_spent: agent.total_spent,
-        jobs_completed: agent.jobs_completed,
-        jobs_posted: agent.jobs_posted,
-        registered_at: agent.registered_at,
     }
 }
 
@@ -201,7 +281,11 @@ fn query_list_agents(
     Ok(AgentsListResponse { agents })
 }
 
-fn query_leaderboard(deps: Deps, limit: Option<u32>) -> StdResult<LeaderboardResponse> {
+fn query_leaderboard(
+    deps: Deps,
+    limit: Option<u32>,
+    skill: Option<String>,
+) -> StdResult<LeaderboardResponse> {
     let limit = limit.unwrap_or(10).min(100) as usize;
 
     let mut agents: Vec<AgentResponse> = AGENTS
@@ -212,11 +296,63 @@ fn query_leaderboard(deps: Deps, limit: Option<u32>) -> StdResult<LeaderboardRes
         })
         .collect::<StdResult<_>>()?;
 
-    // Sort by total_earned descending (reputation = volume)
-    agents.sort_by(|a, b| b.total_earned.cmp(&a.total_earned));
-    agents.truncate(limit);
+    match skill {
+        Some(ref skill_name) => {
+            // Filter to agents who have this skill, sort by total_earned within that skill
+            agents.retain(|a| a.skills.iter().any(|s| &s.name == skill_name));
+            agents.sort_by(|a, b| {
+                let a_earned = a
+                    .skills
+                    .iter()
+                    .find(|s| &s.name == skill_name)
+                    .map(|s| s.total_earned)
+                    .unwrap_or_default();
+                let b_earned = b
+                    .skills
+                    .iter()
+                    .find(|s| &s.name == skill_name)
+                    .map(|s| s.total_earned)
+                    .unwrap_or_default();
+                b_earned.cmp(&a_earned)
+            });
+        }
+        None => {
+            // Sort by overall total_earned descending
+            agents.sort_by(|a, b| b.total_earned.cmp(&a.total_earned));
+        }
+    }
 
+    agents.truncate(limit);
     Ok(LeaderboardResponse { agents })
+}
+
+fn query_agents_by_skill(
+    deps: Deps,
+    skill: String,
+    min_rating: Option<u8>,
+    limit: Option<u32>,
+) -> StdResult<AgentsListResponse> {
+    let limit = limit.unwrap_or(30).min(100) as usize;
+    let min_rating = min_rating.unwrap_or(1);
+
+    let agents: Vec<AgentResponse> = AGENTS
+        .range(deps.storage, None, None, Order::Ascending)
+        .filter_map(|item| {
+            let (addr, agent) = item.ok()?;
+            let has_skill = agent
+                .skills
+                .iter()
+                .any(|s| s.name == skill && s.self_rating >= min_rating);
+            if has_skill {
+                Some(agent_to_response(&addr, &agent))
+            } else {
+                None
+            }
+        })
+        .take(limit)
+        .collect();
+
+    Ok(AgentsListResponse { agents })
 }
 
 fn query_config(deps: Deps) -> StdResult<ReputationConfigResponse> {

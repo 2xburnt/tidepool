@@ -1,6 +1,7 @@
 use cosmwasm_schema::cw_serde;
 use cosmwasm_std::{Addr, Uint128};
 use cw_storage_plus::{Item, Map};
+use tidepool_types::Skill;
 
 #[cw_serde]
 pub struct Config {
@@ -11,7 +12,7 @@ pub struct Config {
 #[cw_serde]
 pub struct Agent {
     pub name: String,
-    pub specializations: Vec<String>,
+    pub skills: Vec<Skill>,
     pub total_earned: Uint128,
     pub total_spent: Uint128,
     pub jobs_completed: u64,

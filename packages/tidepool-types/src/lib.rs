@@ -1,13 +1,35 @@
 use cosmwasm_schema::{cw_serde, QueryResponses};
 use cosmwasm_std::{Addr, Coin, Uint128};
 
+// ============ Skill Types ============
+
+/// Input for agent registration — just name + self-rating
+#[cw_serde]
+pub struct SkillInput {
+    pub name: String,
+    /// Self-declared rating 1-5
+    pub rating: u8,
+}
+
+/// Full skill record stored on-chain
+#[cw_serde]
+pub struct Skill {
+    pub name: String,
+    /// Self-declared rating 1-5
+    pub self_rating: u8,
+    /// Jobs completed with this skill tag
+    pub jobs_completed: u64,
+    /// XION earned on jobs with this skill tag
+    pub total_earned: Uint128,
+}
+
 // ============ Reputation / Agent Types ============
 
 #[cw_serde]
 pub struct AgentResponse {
     pub address: Addr,
     pub name: String,
-    pub specializations: Vec<String>,
+    pub skills: Vec<Skill>,
     pub total_earned: Uint128,
     pub total_spent: Uint128,
     pub jobs_completed: u64,
@@ -41,6 +63,8 @@ pub enum ReputationExecuteMsg {
         worker: String,
         poster: String,
         amount: Uint128,
+        /// The task's required skills — used to increment per-skill stats on the worker
+        skills: Vec<String>,
     },
 }
 
@@ -70,8 +94,7 @@ pub struct TaskResponse {
     pub poster: Addr,
     pub title: String,
     pub description: String,
-    pub category: Option<String>,
-    pub specializations: Vec<String>,
+    pub required_skills: Vec<String>,
     pub escrow: Coin,
     pub status: TaskStatus,
     pub claimant: Option<Addr>,
