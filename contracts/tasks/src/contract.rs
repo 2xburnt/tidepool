@@ -174,11 +174,12 @@ fn execute_claim_task(
         return Err(ContractError::CannotClaimOwnTask {});
     }
 
-    // Check expiry
-    if let Some(expires_at) = task.expires_at
-        && env.block.height >= expires_at
-    {
-        return Err(ContractError::TaskNotOpen {});
+    // Check expiry — nested form required: CosmWasm optimizer Rust lacks let-chains
+    #[allow(clippy::collapsible_if)]
+    if let Some(expires_at) = task.expires_at {
+        if env.block.height >= expires_at {
+            return Err(ContractError::TaskNotOpen {});
+        }
     }
 
     // Verify agent is registered by querying reputation contract
@@ -493,10 +494,12 @@ fn query_list_tasks(
         .range(deps.storage, start, None, Order::Descending)
         .filter_map(|item| {
             let (_, task) = item.ok()?;
-            if let Some(ref s) = status
-                && &task.status != s
-            {
-                return None;
+            // Nested form required: CosmWasm optimizer Rust lacks let-chains
+            #[allow(clippy::collapsible_if)]
+            if let Some(ref s) = status {
+                if &task.status != s {
+                    return None;
+                }
             }
             Some(task_to_response(&task))
         })
