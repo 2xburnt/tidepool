@@ -175,10 +175,10 @@ fn execute_claim_task(
     }
 
     // Check expiry
-    if let Some(expires_at) = task.expires_at {
-        if env.block.height >= expires_at {
-            return Err(ContractError::TaskNotOpen {});
-        }
+    if let Some(expires_at) = task.expires_at
+        && env.block.height >= expires_at
+    {
+        return Err(ContractError::TaskNotOpen {});
     }
 
     // Verify agent is registered by querying reputation contract
@@ -245,20 +245,15 @@ fn settle_task(
     task.completed_at = Some(env.block.height);
     TASKS.save(deps.storage, task_id, task)?;
 
-    let mut msgs: Vec<CosmosMsg> = vec![];
-
-    // Send escrow to worker
-    msgs.push(
+    let msgs: Vec<CosmosMsg> = vec![
+        // Send escrow to worker
         BankMsg::Send {
             to_address: claimant.to_string(),
             amount: vec![task.escrow.clone()],
         }
         .into(),
-    );
-
-    // Update volume in reputation contract — pass required_skills for per-skill tracking
-    // CosmWasm 3.x: Coin.amount is Uint256, convert to Uint128 for reputation contract
-    msgs.push(
+        // Update volume in reputation contract — pass required_skills for per-skill tracking
+        // CosmWasm 3.x: Coin.amount is Uint256, convert to Uint128 for reputation contract
         WasmMsg::Execute {
             contract_addr: config.reputation_contract.to_string(),
             msg: to_json_binary(&ReputationExecuteMsg::UpdateVolume {
@@ -270,7 +265,7 @@ fn settle_task(
             funds: vec![],
         }
         .into(),
-    );
+    ];
 
     Ok(msgs)
 }
@@ -498,10 +493,10 @@ fn query_list_tasks(
         .range(deps.storage, start, None, Order::Descending)
         .filter_map(|item| {
             let (_, task) = item.ok()?;
-            if let Some(ref s) = status {
-                if &task.status != s {
-                    return None;
-                }
+            if let Some(ref s) = status
+                && &task.status != s
+            {
+                return None;
             }
             Some(task_to_response(&task))
         })
