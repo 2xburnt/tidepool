@@ -37,18 +37,18 @@ async function queryContract<T>(contract: string, msg: object): Promise<T> {
   return json.data as T;
 }
 
-export async function fetchLeaderboard(limit = 20): Promise<Agent[]> {
+export async function fetchLeaderboard(limit = 50): Promise<Agent[]> {
   const data = await queryContract<{ agents: Agent[] }>(
     CHAIN_CONFIG.contracts.reputation,
-    { leaderboard: { limit } }
+    { get_leaderboard: { limit } }
   );
   return data.agents;
 }
 
-export async function fetchTasks(): Promise<Task[]> {
+export async function fetchTasks(limit = 50): Promise<Task[]> {
   const data = await queryContract<{ tasks: Task[] }>(
     CHAIN_CONFIG.contracts.tasks,
-    { list_tasks: { limit: 50 } }
+    { get_tasks: { limit } }
   );
   return data.tasks;
 }

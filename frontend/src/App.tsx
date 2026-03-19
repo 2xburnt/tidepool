@@ -1,13 +1,10 @@
-import React, { useEffect, useState, useCallback } from "react";
-import {
-  AbstraxionProvider,
-  AbstraxionEmbed,
-  useAbstraxionAccount,
-  useAbstraxionSigningClient,
-  useAbstraxionClient,
-} from "@burnt-labs/abstraxion";
+import React, { useEffect, useState, useCallback, Suspense, lazy } from "react";
 import { type Agent, type Task, fetchLeaderboard, fetchTasks } from "./client";
 import { CHAIN_CONFIG } from "./config";
+
+// Lazy-load wallet/chain modules — only fetched when user clicks "Connect Wallet"
+const WalletProvider = lazy(() => import("./WalletProvider"));
+const WalletConnected = lazy(() => import("./WalletConnected"));
 
 function shortenAddr(addr: string): string {
   return addr.slice(0, 10) + "..." + addr.slice(-6);
@@ -124,7 +121,7 @@ function Leaderboard({ agents }: { agents: Agent[] }) {
   );
 }
 
-function TaskList({
+export function TaskList({
   tasks,
   agents,
   onClaim,
@@ -212,34 +209,12 @@ function TaskList({
   );
 }
 
-function WalletButton() {
-  const { data: account, isConnected } = useAbstraxionAccount();
-  const { client: abstraxionClient } = useAbstraxionClient();
-
-  if (isConnected && account?.bech32Address) {
-    return (
-      <div className="wallet-connected">
-        <span className="wallet-addr">
-          {shortenAddr(account.bech32Address)}
-        </span>
-      </div>
-    );
-  }
-
-  return (
-    <button className="btn-connect" onClick={() => abstraxionClient?.authenticate()}>
-      Connect Wallet
-    </button>
-  );
-}
-
+/** Read-only dashboard — no wallet/chain dependencies */
 function Dashboard() {
   const [agents, setAgents] = useState<Agent[]>([]);
   const [tasks, setTasks] = useState<Task[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const { data: account } = useAbstraxionAccount();
-  const { client: signingClient } = useAbstraxionSigningClient();
 
   const load = useCallback(async () => {
     try {
@@ -259,27 +234,6 @@ function Dashboard() {
     const interval = setInterval(load, 30000);
     return () => clearInterval(interval);
   }, [load]);
-
-  const handleClaim = useCallback(
-    async (taskId: number) => {
-      if (!signingClient || !account?.bech32Address) {
-        alert("Connect your wallet first");
-        return;
-      }
-      try {
-        await signingClient.execute(
-          account.bech32Address,
-          CHAIN_CONFIG.contracts.tasks,
-          { claim_task: { task_id: taskId } },
-          "auto"
-        );
-        await load();
-      } catch (e: unknown) {
-        alert(`Claim failed: ${e instanceof Error ? e.message : String(e)}`);
-      }
-    },
-    [signingClient, account, load]
-  );
 
   if (loading) {
     return (
@@ -304,49 +258,61 @@ function Dashboard() {
     <>
       <Stats agents={agents} tasks={tasks} />
       <Leaderboard agents={agents} />
-      <TaskList
-        tasks={tasks}
-        agents={agents}
-        onClaim={signingClient ? handleClaim : undefined}
-        connectedAddr={account?.bech32Address}
-      />
+      <TaskList tasks={tasks} agents={agents} />
     </>
   );
 }
 
+// Preload wallet chunk on hover for snappier UX
+const preloadWallet = () => {
+  import("./WalletProvider");
+  import("./WalletConnected");
+};
+
 export default function App() {
+  const [walletRequested, setWalletRequested] = useState(false);
+
   return (
-    <AbstraxionProvider
-      config={{
-        rpcUrl: CHAIN_CONFIG.rpcEndpoint,
-        restUrl: CHAIN_CONFIG.restEndpoint,
-        contracts: [CHAIN_CONFIG.contracts.reputation, CHAIN_CONFIG.contracts.tasks],
-      }}
-    >
-      <div className="container">
-        <header>
-          <div className="header-row">
-            <div>
-              <h1>🌊 Tidepool</h1>
-              <p className="subtitle">
-                Decentralized Agent Reputation System on Xion
-              </p>
-            </div>
-            <WalletButton />
+    <div className="container">
+      <header>
+        <div className="header-row">
+          <div>
+            <h1>🌊 Tidepool</h1>
+            <p className="subtitle">
+              Decentralized Agent Reputation System on Xion
+            </p>
           </div>
-        </header>
-        <Dashboard />
-        <AbstraxionEmbed />
-        <footer>
-          <p>
-            Contracts on <strong>xion-testnet-2</strong> · Powered by{" "}
-            <a href="https://xion.burnt.com" target="_blank" rel="noreferrer">
-              XION
-            </a>{" "}
-            · Auto-refreshes every 30s
-          </p>
-        </footer>
-      </div>
-    </AbstraxionProvider>
+          {!walletRequested ? (
+            <button
+              className="btn-connect"
+              onMouseEnter={preloadWallet}
+              onFocus={preloadWallet}
+              onClick={() => setWalletRequested(true)}
+            >
+              Connect Wallet
+            </button>
+          ) : (
+            <Suspense fallback={<span className="wallet-loading">Loading wallet...</span>}>
+              <WalletProvider>
+                <WalletConnected />
+              </WalletProvider>
+            </Suspense>
+          )}
+        </div>
+      </header>
+
+      {/* Dashboard is always rendered — read-only, no wallet deps */}
+      <Dashboard />
+
+      <footer>
+        <p>
+          Contracts on <strong>xion-testnet-2</strong> · Powered by{" "}
+          <a href="https://xion.burnt.com" target="_blank" rel="noreferrer">
+            XION
+          </a>{" "}
+          · Auto-refreshes every 30s
+        </p>
+      </footer>
+    </div>
   );
 }
