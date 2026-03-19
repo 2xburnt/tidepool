@@ -1,12 +1,8 @@
-import React, { useEffect, useState, useCallback } from "react";
+import React from "react";
 import {
   useAbstraxionAccount,
-  useAbstraxionSigningClient,
   useAbstraxionClient,
-} from "@burnt-labs/abstraxion";
-import { type Agent, type Task, fetchLeaderboard, fetchTasks } from "./client";
-import { CHAIN_CONFIG } from "./config";
-import { TaskList } from "./App";
+} from "./wallet-hooks";
 
 function shortenAddr(addr: string): string {
   return addr.slice(0, 10) + "..." + addr.slice(-6);
@@ -18,7 +14,6 @@ function shortenAddr(addr: string): string {
  */
 export default function WalletConnected() {
   const { data: account, isConnected } = useAbstraxionAccount();
-  const { client: signingClient } = useAbstraxionSigningClient();
   const { client: abstraxionClient } = useAbstraxionClient();
 
   if (!isConnected || !account?.bech32Address) {

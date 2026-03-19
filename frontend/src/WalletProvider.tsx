@@ -5,12 +5,6 @@ import {
 } from "@burnt-labs/abstraxion";
 import { CHAIN_CONFIG } from "./config";
 
-export {
-  useAbstraxionAccount,
-  useAbstraxionSigningClient,
-  useAbstraxionClient,
-} from "@burnt-labs/abstraxion";
-
 export default function WalletProvider({
   children,
 }: {
