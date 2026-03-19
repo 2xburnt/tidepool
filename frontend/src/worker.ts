@@ -117,7 +117,7 @@ async function handleApi(path: string, request: Request, ctx: ExecutionContext):
         const { data, cached } = await cachedQuery(
           `agent:${address}`,
           60,
-          () => queryContract(CONTRACTS.reputation, { agent: { address } }),
+          () => queryContract(CONTRACTS.reputation, { get_agent: { address } }),
           ctx
         );
         return jsonResponse(data, 200, 60, cached);
@@ -130,7 +130,7 @@ async function handleApi(path: string, request: Request, ctx: ExecutionContext):
         const { data, cached } = await cachedQuery(
           `task:${id}`,
           30,
-          () => queryContract(CONTRACTS.tasks, { task: { task_id: parseInt(id) } }),
+          () => queryContract(CONTRACTS.tasks, { get_task: { task_id: parseInt(id) } }),
           ctx
         );
         return jsonResponse(data, 200, 30, cached);
