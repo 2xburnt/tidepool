@@ -85,6 +85,10 @@ mod tests {
         MockApi::default().addr_make("alice")
     }
 
+    fn bob() -> Addr {
+        MockApi::default().addr_make("bob")
+    }
+
     fn unregistered_user() -> Addr {
         MockApi::default().addr_make("unregistered")
     }
@@ -176,6 +180,352 @@ mod tests {
         assert!(
             matches!(err, ContractError::AgentNotRegistered {}),
             "Expected AgentNotRegistered, got: {err:?}"
+        );
+    }
+
+    /// Regression test: full lifecycle (post → claim → submit → approve) settles correctly
+    /// when both poster and worker are registered. Verifies settlement emits escrow payout
+    /// and reputation update messages.
+    #[test]
+    fn test_full_lifecycle_settlement_succeeds() {
+        let poster = alice();
+        let worker = bob();
+        let (mut deps, env) =
+            setup_contract(vec![poster.to_string(), worker.to_string()]);
+
+        // Post
+        execute(
+            deps.as_mut(),
+            env.clone(),
+            message_info(&poster, &valid_escrow()),
+            ExecuteMsg::PostTask {
+                title: "Settle test".to_string(),
+                description: "Full lifecycle".to_string(),
+                required_skills: vec!["rust".to_string()],
+                expires_in_blocks: None,
+            },
+        )
+        .unwrap();
+
+        // Claim
+        execute(
+            deps.as_mut(),
+            env.clone(),
+            message_info(&worker, &[]),
+            ExecuteMsg::ClaimTask { task_id: 1 },
+        )
+        .unwrap();
+
+        // Submit
+        execute(
+            deps.as_mut(),
+            env.clone(),
+            message_info(&worker, &[]),
+            ExecuteMsg::SubmitTask { task_id: 1 },
+        )
+        .unwrap();
+
+        // Approve → settlement
+        let res = execute(
+            deps.as_mut(),
+            env,
+            message_info(&poster, &[]),
+            ExecuteMsg::ApproveTask { task_id: 1 },
+        )
+        .unwrap();
+
+        // Settlement should produce 2 messages: BankMsg::Send + WasmMsg::Execute (UpdateVolume)
+        assert_eq!(res.messages.len(), 2, "Expected 2 settlement messages");
+        assert!(
+            res.attributes
+                .iter()
+                .any(|a| a.key == "method" && a.value == "approve_task"),
+        );
+        assert!(
+            res.attributes
+                .iter()
+                .any(|a| a.key == "claimant" && a.value == worker.to_string()),
+        );
+    }
+
+    /// Regression test for the exact stuck-funds scenario from DO-264:
+    /// Before the fix, an unregistered poster could PostTask successfully, but settlement
+    /// would fail because the reputation contract couldn't find the poster profile —
+    /// leaving escrow permanently stuck. Now PostTask rejects unregistered posters upfront,
+    /// so the stuck-funds path is unreachable.
+    #[test]
+    fn test_unregistered_poster_cannot_reach_settlement() {
+        let unreg = unregistered_user();
+        let worker = bob();
+        // Worker is registered, poster is NOT
+        let (mut deps, env) = setup_contract(vec![worker.to_string()]);
+
+        // Unregistered poster cannot even post — escrow never enters the contract
+        let err = execute(
+            deps.as_mut(),
+            env,
+            message_info(&unreg, &valid_escrow()),
+            ExecuteMsg::PostTask {
+                title: "Stuck funds scenario".to_string(),
+                description: "Should be rejected at post time".to_string(),
+                required_skills: vec!["rust".to_string()],
+                expires_in_blocks: None,
+            },
+        )
+        .unwrap_err();
+
+        assert!(
+            matches!(err, ContractError::AgentNotRegistered {}),
+            "Unregistered poster must be rejected at PostTask, got: {err:?}"
+        );
+    }
+
+    #[test]
+    fn test_claim_task_unregistered_worker_fails() {
+        let poster = alice();
+        let unreg = unregistered_user();
+        let (mut deps, env) = setup_contract(vec![poster.to_string()]);
+
+        // Poster posts successfully
+        execute(
+            deps.as_mut(),
+            env.clone(),
+            message_info(&poster, &valid_escrow()),
+            ExecuteMsg::PostTask {
+                title: "Worker reg test".to_string(),
+                description: "Only registered workers can claim".to_string(),
+                required_skills: vec!["rust".to_string()],
+                expires_in_blocks: None,
+            },
+        )
+        .unwrap();
+
+        // Unregistered worker cannot claim
+        let err = execute(
+            deps.as_mut(),
+            env,
+            message_info(&unreg, &[]),
+            ExecuteMsg::ClaimTask { task_id: 1 },
+        )
+        .unwrap_err();
+
+        assert!(
+            matches!(err, ContractError::AgentNotRegistered {}),
+            "Unregistered worker must be rejected at ClaimTask, got: {err:?}"
+        );
+    }
+
+    #[test]
+    fn test_self_claim_rejected() {
+        let poster = alice();
+        let (mut deps, env) = setup_contract(vec![poster.to_string()]);
+
+        execute(
+            deps.as_mut(),
+            env.clone(),
+            message_info(&poster, &valid_escrow()),
+            ExecuteMsg::PostTask {
+                title: "Self claim test".to_string(),
+                description: "Poster cannot claim own task".to_string(),
+                required_skills: vec![],
+                expires_in_blocks: None,
+            },
+        )
+        .unwrap();
+
+        let err = execute(
+            deps.as_mut(),
+            env,
+            message_info(&poster, &[]),
+            ExecuteMsg::ClaimTask { task_id: 1 },
+        )
+        .unwrap_err();
+
+        assert!(
+            matches!(err, ContractError::CannotClaimOwnTask {}),
+            "Expected CannotClaimOwnTask, got: {err:?}"
+        );
+    }
+
+    #[test]
+    fn test_cancel_only_when_open() {
+        let poster = alice();
+        let worker = bob();
+        let (mut deps, env) =
+            setup_contract(vec![poster.to_string(), worker.to_string()]);
+
+        // Post
+        execute(
+            deps.as_mut(),
+            env.clone(),
+            message_info(&poster, &valid_escrow()),
+            ExecuteMsg::PostTask {
+                title: "Cancel test".to_string(),
+                description: "Can only cancel open tasks".to_string(),
+                required_skills: vec![],
+                expires_in_blocks: None,
+            },
+        )
+        .unwrap();
+
+        // Claim it
+        execute(
+            deps.as_mut(),
+            env.clone(),
+            message_info(&worker, &[]),
+            ExecuteMsg::ClaimTask { task_id: 1 },
+        )
+        .unwrap();
+
+        // Try to cancel after claim — should fail
+        let err = execute(
+            deps.as_mut(),
+            env,
+            message_info(&poster, &[]),
+            ExecuteMsg::CancelTask { task_id: 1 },
+        )
+        .unwrap_err();
+
+        assert!(
+            matches!(err, ContractError::CannotCancel {}),
+            "Expected CannotCancel, got: {err:?}"
+        );
+    }
+
+    #[test]
+    fn test_escrow_too_low_rejected() {
+        let poster = alice();
+        let (mut deps, env) = setup_contract(vec![poster.to_string()]);
+
+        let low_escrow = vec![Coin {
+            denom: ESCROW_DENOM.to_string(),
+            amount: Uint256::from(50_000u128), // below 100_000 minimum
+        }];
+
+        let err = execute(
+            deps.as_mut(),
+            env,
+            message_info(&poster, &low_escrow),
+            ExecuteMsg::PostTask {
+                title: "Low escrow".to_string(),
+                description: "Should fail".to_string(),
+                required_skills: vec![],
+                expires_in_blocks: None,
+            },
+        )
+        .unwrap_err();
+
+        assert!(
+            matches!(err, ContractError::EscrowTooLow { .. }),
+            "Expected EscrowTooLow, got: {err:?}"
+        );
+    }
+
+    #[test]
+    fn test_wrong_denom_rejected() {
+        let poster = alice();
+        let (mut deps, env) = setup_contract(vec![poster.to_string()]);
+
+        let wrong_denom = vec![Coin {
+            denom: "uatom".to_string(),
+            amount: Uint256::from(200_000u128),
+        }];
+
+        let err = execute(
+            deps.as_mut(),
+            env,
+            message_info(&poster, &wrong_denom),
+            ExecuteMsg::PostTask {
+                title: "Wrong denom".to_string(),
+                description: "Should fail".to_string(),
+                required_skills: vec![],
+                expires_in_blocks: None,
+            },
+        )
+        .unwrap_err();
+
+        assert!(
+            matches!(err, ContractError::WrongDenom { .. }),
+            "Expected WrongDenom, got: {err:?}"
+        );
+    }
+
+    #[test]
+    fn test_submit_requires_claimed_status() {
+        let poster = alice();
+        let worker = bob();
+        let (mut deps, env) =
+            setup_contract(vec![poster.to_string(), worker.to_string()]);
+
+        execute(
+            deps.as_mut(),
+            env.clone(),
+            message_info(&poster, &valid_escrow()),
+            ExecuteMsg::PostTask {
+                title: "Submit test".to_string(),
+                description: "Must be claimed first".to_string(),
+                required_skills: vec![],
+                expires_in_blocks: None,
+            },
+        )
+        .unwrap();
+
+        // Try to submit without claiming first
+        let err = execute(
+            deps.as_mut(),
+            env,
+            message_info(&worker, &[]),
+            ExecuteMsg::SubmitTask { task_id: 1 },
+        )
+        .unwrap_err();
+
+        assert!(
+            matches!(err, ContractError::TaskNotClaimed {}),
+            "Expected TaskNotClaimed, got: {err:?}"
+        );
+    }
+
+    #[test]
+    fn test_approve_requires_submitted_status() {
+        let poster = alice();
+        let worker = bob();
+        let (mut deps, env) =
+            setup_contract(vec![poster.to_string(), worker.to_string()]);
+
+        execute(
+            deps.as_mut(),
+            env.clone(),
+            message_info(&poster, &valid_escrow()),
+            ExecuteMsg::PostTask {
+                title: "Approve test".to_string(),
+                description: "Must be submitted first".to_string(),
+                required_skills: vec![],
+                expires_in_blocks: None,
+            },
+        )
+        .unwrap();
+
+        // Claim but don't submit
+        execute(
+            deps.as_mut(),
+            env.clone(),
+            message_info(&worker, &[]),
+            ExecuteMsg::ClaimTask { task_id: 1 },
+        )
+        .unwrap();
+
+        // Try to approve before submit
+        let err = execute(
+            deps.as_mut(),
+            env,
+            message_info(&poster, &[]),
+            ExecuteMsg::ApproveTask { task_id: 1 },
+        )
+        .unwrap_err();
+
+        assert!(
+            matches!(err, ContractError::TaskNotSubmitted {}),
+            "Expected TaskNotSubmitted, got: {err:?}"
         );
     }
 }
